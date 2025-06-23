@@ -11,6 +11,7 @@ interface ThemedLanguageExercisesProps {
   progress: any
   setProgress: (progress: any) => void
   preSelectedHero?: string | null
+  lang?: 'fr' | 'es' | 'en'
 }
 
 const languages = {
@@ -27,6 +28,45 @@ const themes = {
   ninjago: { name: "Ninjago", emoji: "🥷", color: "green", image: "/hero-logos/ninjago.png" },
   pokemon: { name: "Pokémon", emoji: "⚡", color: "yellow", image: "/hero-logos/pokemon.png" },
   minecraft: { name: "Minecraft", emoji: "⛏️", color: "green", image: "/hero-logos/minecraft.png" },
+}
+
+const translations = {
+  fr: {
+    mainTitle: "🎭 Lectures Thématiques 🎭",
+    subtitle: "Choisis ta langue préférée !",
+    cardDesc: "Avec tes héros préférés !",
+    exercises: (n: number) => `${n} exercices réussis`,
+    languages: {
+      catalan: "Català",
+      french: "Français",
+      spanish: "Castellano",
+      english: "English"
+    }
+  },
+  es: {
+    mainTitle: "🎭 Lecturas Temáticas 🎭",
+    subtitle: "¡Elige tu idioma preferido!",
+    cardDesc: "¡Con tus héroes favoritos!",
+    exercises: (n: number) => `${n} ejercicios completados`,
+    languages: {
+      catalan: "Català",
+      french: "Francés",
+      spanish: "Castellano",
+      english: "Inglés"
+    }
+  },
+  en: {
+    mainTitle: "🎭 Themed Readings 🎭",
+    subtitle: "Choose your preferred language!",
+    cardDesc: "With your favorite heroes!",
+    exercises: (n: number) => `${n} exercises completed`,
+    languages: {
+      catalan: "Catalan",
+      french: "French",
+      spanish: "Spanish",
+      english: "English"
+    }
+  }
 }
 
 // Complete content for all languages and themes
@@ -354,7 +394,7 @@ const themedExercises = {
           ],
         },
       ],
-      words: ["ninja", "poder", "entrenamiento", "combate", "equipo"],
+      words: ["ninja", "poder", "entrenamiento", "combate", "équipe"],
     },
     pokemon: {
       listening: [
@@ -531,7 +571,7 @@ function safeThemeData(lang: keyof typeof themedExercises | null, theme: string 
   return langData?.[theme] ?? { listening: [], reading: [], words: [] }
 }
 
-export default function ThemedLanguageExercises({ onBack, progress, setProgress, preSelectedHero }: ThemedLanguageExercisesProps) {
+export default function ThemedLanguageExercises({ onBack, progress, setProgress, preSelectedHero, lang = 'fr' }: ThemedLanguageExercisesProps) {
   const [selectedLanguage, setSelectedLanguage] = useState<string | null>(null)
   const [selectedTheme, setSelectedTheme] = useState<string | null>(null)
   const [exerciseType, setExerciseType] = useState<string | null>(null)
@@ -552,23 +592,45 @@ export default function ThemedLanguageExercises({ onBack, progress, setProgress,
   const [pencilPressure, setPencilPressure] = useState(0.5)
   const [pencilTilt, setPencilTilt] = useState(0)
 
+  // Reset all exercise state
+  const resetExerciseState = () => {
+    setCurrentExercise(0)
+    setCurrentQuestionIndex(0)
+    setShowResult(false)
+    setIsCorrect(false)
+    setScore(0)
+    setUseAI(false)
+    setAiContent(null)
+    setUserAnswer("")
+    clearCanvas()
+  }
+
+  // Reset state when changing theme
+  const handleThemeChange = (theme: string) => {
+    setSelectedTheme(theme)
+    setExerciseType(null)
+    resetExerciseState()
+  }
+
+  // Reset state when changing exercise type
+  const handleExerciseTypeChange = (type: string) => {
+    setExerciseType(type)
+    resetExerciseState()
+  }
+
   // Auto-select hero if provided
   useEffect(() => {
     if (preSelectedHero) {
-      setSelectedTheme(preSelectedHero)
+      handleThemeChange(preSelectedHero)
     }
   }, [preSelectedHero])
 
   // Reset AI content when language changes
   const handleLanguageChange = (language: string) => {
     setSelectedLanguage(language)
-    setUseAI(false)
-    setAiContent(null)
-    setCurrentExercise(0)
-    setCurrentQuestionIndex(0)
-    setShowResult(false)
-    setScore(0)
-    clearCanvas()
+    setSelectedTheme(null)
+    setExerciseType(null)
+    resetExerciseState()
   }
 
   // Text-to-Speech function
@@ -587,8 +649,9 @@ export default function ThemedLanguageExercises({ onBack, progress, setProgress,
     }
   }
 
-  // Apple Pencil Pro drawing functions
+  // Optimized Apple Pencil drawing functions
   const startDrawing = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    e.preventDefault()
     setIsDrawing(true)
     const canvas = canvasRef.current
     if (!canvas) return
@@ -596,6 +659,12 @@ export default function ThemedLanguageExercises({ onBack, progress, setProgress,
     const rect = canvas.getBoundingClientRect()
     const ctx = canvas.getContext("2d")
     if (!ctx) return
+
+    // Set canvas size to match display size for crisp drawing
+    const dpr = window.devicePixelRatio || 1
+    canvas.width = rect.width * dpr
+    canvas.height = rect.height * dpr
+    ctx.scale(dpr, dpr)
 
     const pressure = e.pressure || 0.5
     const tiltX = e.tiltX || 0
@@ -626,6 +695,7 @@ export default function ThemedLanguageExercises({ onBack, progress, setProgress,
   }
 
   const draw = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    e.preventDefault()
     if (!isDrawing) return
 
     const canvas = canvasRef.current
@@ -787,23 +857,24 @@ export default function ThemedLanguageExercises({ onBack, progress, setProgress,
 
   // Language selection screen
   if (!selectedLanguage) {
+    const t = translations[lang]
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-400 via-purple-500 to-pink-500 p-4">
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center mb-6">
             <Button onClick={onBack} className="bg-white/20 hover:bg-white/30 text-white border-white/30">
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Retour
+              {lang === 'fr' ? 'Retour' : lang === 'es' ? 'Volver' : 'Back'}
             </Button>
           </div>
 
           <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold text-white mb-2 drop-shadow-lg">🎭 Lectures Thématiques 🎭</h1>
-            <p className="text-xl text-white/90 drop-shadow">Choisis ta langue préférée !</p>
+            <h1 className="text-4xl font-bold text-white mb-2 drop-shadow-lg">{t.mainTitle}</h1>
+            <p className="text-xl text-white/90 drop-shadow">{t.subtitle}</p>
           </div>
 
           <div className="grid md:grid-cols-2 gap-6">
-            {Object.entries(languages).map(([key, lang]) => (
+            {Object.entries(languages).map(([key, langObj]) => (
               <Card
                 key={key}
                 className="bg-white/95 backdrop-blur-sm shadow-xl hover:shadow-2xl transition-all duration-300 cursor-pointer transform hover:scale-105"
@@ -811,16 +882,16 @@ export default function ThemedLanguageExercises({ onBack, progress, setProgress,
               >
                 <CardHeader className="text-center">
                   <div className="mx-auto w-16 h-16 bg-blue-500 rounded-full flex items-center justify-center mb-4">
-                    <span className="text-2xl">{lang.flag}</span>
+                    <span className="text-2xl">{langObj.flag}</span>
                   </div>
-                  <CardTitle className="text-2xl text-gray-800">{lang.name}</CardTitle>
+                  <CardTitle className="text-2xl text-gray-800">{t.languages[key as keyof typeof t.languages]}</CardTitle>
                 </CardHeader>
                 <CardContent className="text-center">
                   <div className="flex justify-center items-center gap-2 text-sm text-gray-600 mb-4">
                     <Star className="h-4 w-4 text-yellow-500" />
-                    <span>{progress.languages[key]} exercices réussis</span>
+                    <span>{t.exercises(progress.languages[key as keyof typeof t.languages])}</span>
                   </div>
-                  <p className="text-sm text-gray-600">Avec tes héros préférés !</p>
+                  <p className="text-sm text-gray-600">{t.cardDesc}</p>
                 </CardContent>
               </Card>
             ))}
@@ -857,7 +928,7 @@ export default function ThemedLanguageExercises({ onBack, progress, setProgress,
               <Card
                 key={key}
                 className="bg-white/95 backdrop-blur-sm shadow-xl hover:shadow-2xl transition-all duration-300 cursor-pointer transform hover:scale-105"
-                onClick={() => setSelectedTheme(key)}
+                onClick={() => handleThemeChange(key)}
               >
                 <CardHeader className="text-center">
                   <div 
@@ -919,7 +990,7 @@ export default function ThemedLanguageExercises({ onBack, progress, setProgress,
           <div className="grid md:grid-cols-3 gap-6">
             <Card
               className="bg-white/95 backdrop-blur-sm shadow-xl hover:shadow-2xl transition-all duration-300 cursor-pointer transform hover:scale-105"
-              onClick={() => setExerciseType("listening")}
+              onClick={() => handleExerciseTypeChange("listening")}
             >
               <CardHeader className="text-center">
                 <div className="mx-auto w-16 h-16 bg-blue-500 rounded-full flex items-center justify-center mb-4">
@@ -936,7 +1007,7 @@ export default function ThemedLanguageExercises({ onBack, progress, setProgress,
 
             <Card
               className="bg-white/95 backdrop-blur-sm shadow-xl hover:shadow-2xl transition-all duration-300 cursor-pointer transform hover:scale-105"
-              onClick={() => setExerciseType("reading")}
+              onClick={() => handleExerciseTypeChange("reading")}
             >
               <CardHeader className="text-center">
                 <div className="mx-auto w-16 h-16 bg-purple-500 rounded-full flex items-center justify-center mb-4">
@@ -953,7 +1024,7 @@ export default function ThemedLanguageExercises({ onBack, progress, setProgress,
 
             <Card
               className="bg-white/95 backdrop-blur-sm shadow-xl hover:shadow-2xl transition-all duration-300 cursor-pointer transform hover:scale-105"
-              onClick={() => setExerciseType("writing")}
+              onClick={() => handleExerciseTypeChange("writing")}
             >
               <CardHeader className="text-center">
                 <div className="mx-auto w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mb-4">
@@ -1073,6 +1144,8 @@ export default function ThemedLanguageExercises({ onBack, progress, setProgress,
                   onPointerMove={draw}
                   onPointerUp={stopDrawing}
                   onPointerLeave={stopDrawing}
+                  onTouchStart={(e) => e.preventDefault()}
+                  onTouchMove={(e) => e.preventDefault()}
                   style={{ touchAction: "none" }}
                 />
 
@@ -1260,6 +1333,8 @@ export default function ThemedLanguageExercises({ onBack, progress, setProgress,
                   onPointerMove={draw}
                   onPointerUp={stopDrawing}
                   onPointerLeave={stopDrawing}
+                  onTouchStart={(e) => e.preventDefault()}
+                  onTouchMove={(e) => e.preventDefault()}
                   style={{ touchAction: "none" }}
                 />
 
@@ -1440,6 +1515,8 @@ export default function ThemedLanguageExercises({ onBack, progress, setProgress,
                   onPointerMove={draw}
                   onPointerUp={stopDrawing}
                   onPointerLeave={stopDrawing}
+                  onTouchStart={(e) => e.preventDefault()}
+                  onTouchMove={(e) => e.preventDefault()}
                   style={{ touchAction: "none" }}
                 />
 
