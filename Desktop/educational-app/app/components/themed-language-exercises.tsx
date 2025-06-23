@@ -305,14 +305,14 @@ const themedExercises = {
       reading: [
         {
           title: "Steve et Alex dans le Nether",
-          text: "Steve et Alex se préparaient pour leur aventure més dangereuse : voyager dans le Nether avec un portail magique.",
+          text: "Steve et Alex se préparaient pour leur aventure més dangereuse : voyager dans le Nether avec un portail màgic d'obsidiana.",
           questions: [
             { question: "Où voulaient-ils voyager?", answer: "dans le Nether" },
-            { question: "Comment allaient-ils voyager?", answer: "avec un portail magique" },
+            { question: "Comment allaient-ils voyager?", answer: "avec un portail màgic" },
           ],
         },
       ],
-      words: ["bloc", "pioche", "creeper", "diamant", "construction"],
+      words: ["bloc", "picoleta", "creeper", "diamant", "construcció"],
     },
   },
   spanish: {
@@ -434,7 +434,7 @@ const themedExercises = {
           ],
         },
       ],
-      words: ["bloque", "pico", "creeper", "diamante", "construcción"],
+      words: ["bloque", "picoleta", "creeper", "diamante", "construcción"],
     },
   },
   english: {
@@ -1135,19 +1135,43 @@ export default function ThemedLanguageExercises({ onBack, progress, setProgress,
                   </Button>
                 </div>
 
-                <canvas
-                  ref={canvasRef}
-                  width={600}
-                  height={200}
-                  className="w-full border-2 border-dashed border-gray-300 rounded cursor-crosshair touch-none bg-white mb-4"
-                  onPointerDown={startDrawing}
-                  onPointerMove={draw}
-                  onPointerUp={stopDrawing}
-                  onPointerLeave={stopDrawing}
-                  onTouchStart={(e) => e.preventDefault()}
-                  onTouchMove={(e) => e.preventDefault()}
-                  style={{ touchAction: "none" }}
-                />
+                <div className="relative">
+                  <canvas
+                    ref={canvasRef}
+                    width={600}
+                    height={200}
+                    className="w-full border-2 border-dashed border-gray-300 rounded cursor-crosshair touch-none bg-white mb-4"
+                    onPointerDown={startDrawing}
+                    onPointerMove={draw}
+                    onPointerUp={stopDrawing}
+                    onPointerLeave={stopDrawing}
+                    onTouchStart={(e) => e.preventDefault()}
+                    onTouchMove={(e) => e.preventDefault()}
+                    style={{ touchAction: "none" }}
+                  />
+                  
+                  {/* Text input overlay */}
+                  <div
+                    className="absolute inset-0 p-4 text-lg text-gray-700 bg-transparent border-none outline-none resize-none cursor-text"
+                    contentEditable
+                    suppressContentEditableWarning
+                    onInput={(e) => setUserAnswer(e.currentTarget.textContent || "")}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault()
+                        checkAnswer()
+                      }
+                    }}
+                    style={{
+                      fontFamily: 'Arial, sans-serif',
+                      lineHeight: '1.5',
+                      minHeight: '200px',
+                      pointerEvents: 'auto'
+                    }}
+                    data-placeholder="Écris ta réponse ici ou dessine avec le crayon..."
+                    aria-label="Zone de réponse - écris ou dessine ici"
+                  />
+                </div>
 
                 <div className="flex justify-between items-center mt-3 p-2 bg-gray-50 rounded text-sm mb-4">
                   <span>
@@ -1157,19 +1181,6 @@ export default function ThemedLanguageExercises({ onBack, progress, setProgress,
                     📐 Inclinaison: <strong>{Math.round(pencilTilt)}°</strong>
                   </span>
                   <span>{isErasing ? "🧽 Gomme" : "✏️ Écriture"}</span>
-                </div>
-
-                <div className="bg-gray-50 p-3 rounded-lg">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    💬 Ou tape ta réponse ici :
-                  </label>
-                  <input
-                    type="text"
-                    value={userAnswer}
-                    onChange={(e) => setUserAnswer(e.target.value)}
-                    placeholder="Écris ta réponse..."
-                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
                 </div>
               </div>
 
@@ -1324,19 +1335,43 @@ export default function ThemedLanguageExercises({ onBack, progress, setProgress,
                   </Button>
                 </div>
 
-                <canvas
-                  ref={canvasRef}
-                  width={600}
-                  height={200}
-                  className="w-full border-2 border-dashed border-gray-300 rounded cursor-crosshair touch-none bg-white mb-4"
-                  onPointerDown={startDrawing}
-                  onPointerMove={draw}
-                  onPointerUp={stopDrawing}
-                  onPointerLeave={stopDrawing}
-                  onTouchStart={(e) => e.preventDefault()}
-                  onTouchMove={(e) => e.preventDefault()}
-                  style={{ touchAction: "none" }}
-                />
+                <div className="relative">
+                  <canvas
+                    ref={canvasRef}
+                    width={600}
+                    height={200}
+                    className="w-full border-2 border-dashed border-gray-300 rounded cursor-crosshair touch-none bg-white mb-4"
+                    onPointerDown={startDrawing}
+                    onPointerMove={draw}
+                    onPointerUp={stopDrawing}
+                    onPointerLeave={stopDrawing}
+                    onTouchStart={(e) => e.preventDefault()}
+                    onTouchMove={(e) => e.preventDefault()}
+                    style={{ touchAction: "none" }}
+                  />
+                  
+                  {/* Text input overlay */}
+                  <div
+                    className="absolute inset-0 p-4 text-lg text-gray-700 bg-transparent border-none outline-none resize-none cursor-text"
+                    contentEditable
+                    suppressContentEditableWarning
+                    onInput={(e) => setUserAnswer(e.currentTarget.textContent || "")}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault()
+                        checkAnswer()
+                      }
+                    }}
+                    style={{
+                      fontFamily: 'Arial, sans-serif',
+                      lineHeight: '1.5',
+                      minHeight: '200px',
+                      pointerEvents: 'auto'
+                    }}
+                    data-placeholder="Écris ta réponse ici ou dessine avec le crayon..."
+                    aria-label="Zone de réponse - écris ou dessine ici"
+                  />
+                </div>
 
                 <div className="flex justify-between items-center mt-3 p-2 bg-gray-50 rounded text-sm mb-4">
                   <span>
@@ -1346,19 +1381,6 @@ export default function ThemedLanguageExercises({ onBack, progress, setProgress,
                     📐 Inclinaison: <strong>{Math.round(pencilTilt)}°</strong>
                   </span>
                   <span>{isErasing ? "🧽 Gomme" : "✏️ Écriture"}</span>
-                </div>
-
-                <div className="bg-gray-50 p-3 rounded-lg">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    💬 Ou tape ta réponse ici :
-                  </label>
-                  <input
-                    type="text"
-                    value={userAnswer}
-                    onChange={(e) => setUserAnswer(e.target.value)}
-                    placeholder="Écris ta réponse..."
-                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  />
                 </div>
               </div>
 
@@ -1506,19 +1528,43 @@ export default function ThemedLanguageExercises({ onBack, progress, setProgress,
                   </Button>
                 </div>
 
-                <canvas
-                  ref={canvasRef}
-                  width={600}
-                  height={300}
-                  className="w-full border-2 border-dashed border-gray-300 rounded cursor-crosshair touch-none bg-white"
-                  onPointerDown={startDrawing}
-                  onPointerMove={draw}
-                  onPointerUp={stopDrawing}
-                  onPointerLeave={stopDrawing}
-                  onTouchStart={(e) => e.preventDefault()}
-                  onTouchMove={(e) => e.preventDefault()}
-                  style={{ touchAction: "none" }}
-                />
+                <div className="relative">
+                  <canvas
+                    ref={canvasRef}
+                    width={600}
+                    height={300}
+                    className="w-full border-2 border-dashed border-gray-300 rounded cursor-crosshair touch-none bg-white"
+                    onPointerDown={startDrawing}
+                    onPointerMove={draw}
+                    onPointerUp={stopDrawing}
+                    onPointerLeave={stopDrawing}
+                    onTouchStart={(e) => e.preventDefault()}
+                    onTouchMove={(e) => e.preventDefault()}
+                    style={{ touchAction: "none" }}
+                  />
+                  
+                  {/* Text input overlay */}
+                  <div
+                    className="absolute inset-0 p-4 text-lg text-gray-700 bg-transparent border-none outline-none resize-none cursor-text"
+                    contentEditable
+                    suppressContentEditableWarning
+                    onInput={(e) => setUserAnswer(e.currentTarget.textContent || "")}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault()
+                        // For writing exercises, don't auto-submit on Enter
+                      }
+                    }}
+                    style={{
+                      fontFamily: 'Arial, sans-serif',
+                      lineHeight: '1.5',
+                      minHeight: '300px',
+                      pointerEvents: 'auto'
+                    }}
+                    data-placeholder="Écris ton histoire ici ou dessine avec le crayon..."
+                    aria-label="Zone d'écriture - écris ou dessine ici"
+                  />
+                </div>
 
                 <div className="flex justify-between items-center mt-3 p-2 bg-gray-50 rounded text-sm">
                   <span>
