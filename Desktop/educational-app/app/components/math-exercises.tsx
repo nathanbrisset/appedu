@@ -1,18 +1,54 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { ArrowLeft, Plus, Minus, ImagePlusIcon as MultiplyIcon, Star, Trophy, Lightbulb } from "lucide-react"
+import { ArrowLeft, Plus, Minus, ImagePlusIcon as MultiplyIcon, Star, Trophy, Lightbulb, RotateCcw, Volume2 } from "lucide-react"
+import * as tf from '@tensorflow/tfjs';
 
 interface MathExercisesProps {
   onBack: () => void
   progress: any
   setProgress: (progress: any) => void
+  lang: 'fr' | 'es' | 'en'
+  setLang: (lang: 'fr' | 'es' | 'en') => void
 }
 
-export default function MathExercises({ onBack, progress, setProgress }: MathExercisesProps) {
+const translations = {
+  fr: {
+    mathTitle: '🔢 Mathématiques 🔢',
+    chooseType: "Choisis ton type d'exercice !",
+    additions: 'Additions',
+    subtractions: 'Soustractions',
+    multiplications: 'Multiplications',
+    divisions: 'Divisions',
+    writeNumbers: 'Écrire les nombres',
+    // ...and so on for all UI text...
+  },
+  es: {
+    mathTitle: '🔢 Matemáticas 🔢',
+    chooseType: '¡Elige tu tipo de ejercicio!',
+    additions: 'Sumas',
+    subtractions: 'Restas',
+    multiplications: 'Multiplicaciones',
+    divisions: 'Divisiones',
+    writeNumbers: 'Escribir los números',
+    // ...
+  },
+  en: {
+    mathTitle: '🔢 Math 🔢',
+    chooseType: 'Choose your exercise type!',
+    additions: 'Additions',
+    subtractions: 'Subtractions',
+    multiplications: 'Multiplications',
+    divisions: 'Divisions',
+    writeNumbers: 'Write the numbers',
+    // ...
+  },
+}
+
+export default function MathExercises({ onBack, progress, setProgress, lang, setLang }: MathExercisesProps) {
   const [selectedType, setSelectedType] = useState<string | null>(null)
   const [currentExercise, setCurrentExercise] = useState(0)
   const [userAnswer, setUserAnswer] = useState("")
@@ -23,6 +59,179 @@ export default function MathExercises({ onBack, progress, setProgress }: MathExe
   const [showHint, setShowHint] = useState(false)
   const [revealedParts, setRevealedParts] = useState<number[]>([])
   const [imageProgress, setImageProgress] = useState(0)
+  const [audioPlaying, setAudioPlaying] = useState(false)
+  const [isWriting, setIsWriting] = useState(false)
+  const [recognizedNumber, setRecognizedNumber] = useState<string>("")
+  const [isRecognizing, setIsRecognizing] = useState(false)
+  const numberCanvasRef = useRef<HTMLCanvasElement>(null)
+  const scribbleInputRef = useRef<HTMLDivElement>(null)
+  const [mnistModel, setMnistModel] = useState<tf.LayersModel | null>(null);
+
+  // Initialize canvas with proper resolution
+  useEffect(() => {
+    const canvas = numberCanvasRef.current
+    if (!canvas) return
+
+    const resizeCanvas = () => {
+      const rect = canvas.getBoundingClientRect()
+      const dpr = window.devicePixelRatio || 1
+      canvas.width = rect.width * dpr
+      canvas.height = rect.height * dpr
+      
+      const ctx = canvas.getContext("2d")
+      if (ctx) {
+        ctx.scale(dpr, dpr)
+        ctx.strokeStyle = "#2563eb"
+        ctx.lineWidth = 3
+        ctx.lineCap = "round"
+        ctx.lineJoin = "round"
+      }
+    }
+
+    resizeCanvas()
+    window.addEventListener('resize', resizeCanvas)
+    
+    return () => {
+      window.removeEventListener('resize', resizeCanvas)
+    }
+  }, [])
+
+  // Load MNIST model on mount
+  useEffect(() => {
+    async function loadModel() {
+      // You can use a public pre-trained MNIST model or host your own
+      // Here we use a public one for demo purposes
+      const model = await tf.loadLayersModel('https://storage.googleapis.com/tfjs-models/tfjs/mnist/model.json');
+      setMnistModel(model);
+    }
+    loadModel();
+  }, []);
+
+  // Preprocess canvas image for MNIST (28x28 grayscale)
+  const preprocessCanvas = (canvas: HTMLCanvasElement) => {
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    // Resize to 28x28
+    const temp = document.createElement('canvas');
+    temp.width = 28;
+    temp.height = 28;
+    const tempCtx = temp.getContext('2d');
+    if (!tempCtx) return null;
+    tempCtx.drawImage(canvas, 0, 0, 28, 28);
+    // Get grayscale data
+    const imgData = tempCtx.getImageData(0, 0, 28, 28);
+    const data = [];
+    for (let i = 0; i < imgData.data.length; i += 4) {
+      // Invert color: MNIST expects white digit on black
+      const avg = (imgData.data[i] + imgData.data[i+1] + imgData.data[i+2]) / 3;
+      data.push((255 - avg) / 255);
+    }
+    return tf.tensor(data, [1, 28, 28, 1]);
+  };
+
+  // Recognize all digits on click
+  const recognizeAllDigits = async () => {
+    if (!mnistModel || !numberCanvasRef.current) return "";
+    
+    const canvas = numberCanvasRef.current;
+    const tensor = preprocessCanvas(canvas);
+    if (!tensor) return "";
+    
+    try {
+      const prediction = mnistModel.predict(tensor) as tf.Tensor;
+      const digit = prediction.argMax(1).dataSync()[0];
+      const result = digit.toString();
+      
+      tensor.dispose();
+      prediction.dispose();
+      
+      return result;
+    } catch (error) {
+      console.error('Recognition error:', error);
+      return "";
+    }
+  };
+
+  // Handle Apple Scribble input
+  const handleScribbleInput = (e: React.FormEvent<HTMLDivElement>) => {
+    const target = e.currentTarget
+    const text = target.textContent || ""
+    
+    // Clear placeholder text if it's still there
+    if (text.includes("Écris avec ton crayon...")) {
+      target.textContent = ""
+      return
+    }
+    
+    // Filter to only allow numbers
+    const numbersOnly = text.replace(/[^0-9]/g, "")
+    target.textContent = numbersOnly
+    
+    setUserAnswer(numbersOnly)
+    setRecognizedNumber(numbersOnly)
+  }
+
+  const clearScribbleInput = () => {
+    if (scribbleInputRef.current) {
+      scribbleInputRef.current.textContent = ""
+      setUserAnswer("")
+      setRecognizedNumber("")
+    }
+  }
+
+  // Play audio for number words
+  const playAudio = (text: string, lang: string = 'fr') => {
+    if ("speechSynthesis" in window) {
+      setAudioPlaying(true)
+      const utterance = new SpeechSynthesisUtterance(text)
+      const langCodes = { fr: "fr-FR", es: "es-ES", en: "en-US" }
+      utterance.lang = langCodes[lang as keyof typeof langCodes] || "fr-FR"
+      utterance.rate = 0.8
+      utterance.onend = () => setAudioPlaying(false)
+      utterance.onerror = () => setAudioPlaying(false)
+      speechSynthesis.speak(utterance)
+    }
+  }
+
+  // Number to word conversion for different languages
+  const numberToWord: { [key: string]: { [key: number]: string } } = {
+    fr: {
+      0: "zéro", 1: "un", 2: "deux", 3: "trois", 4: "quatre", 5: "cinq", 6: "six", 7: "sept", 8: "huit", 9: "neuf", 10: "dix",
+      11: "onze", 12: "douze", 13: "treize", 14: "quatorze", 15: "quinze", 16: "seize", 17: "dix-sept", 18: "dix-huit", 19: "dix-neuf", 20: "vingt",
+      21: "vingt-et-un", 22: "vingt-deux", 23: "vingt-trois", 24: "vingt-quatre", 25: "vingt-cinq", 26: "vingt-six", 27: "vingt-sept", 28: "vingt-huit", 29: "vingt-neuf", 30: "trente",
+      31: "trente-et-un", 32: "trente-deux", 33: "trente-trois", 34: "trente-quatre", 35: "trente-cinq", 36: "trente-six", 37: "trente-sept", 38: "trente-huit", 39: "trente-neuf", 40: "quarante",
+      41: "quarante-et-un", 42: "quarante-deux", 43: "quarante-trois", 44: "quarante-quatre", 45: "quarante-cinq", 46: "quarante-six", 47: "quarante-sept", 48: "quarante-huit", 49: "quarante-neuf", 50: "cinquante",
+      51: "cinquante-et-un", 52: "cinquante-deux", 53: "cinquante-trois", 54: "cinquante-quatre", 55: "cinquante-cinq", 56: "cinquante-six", 57: "cinquante-sept", 58: "cinquante-huit", 59: "cinquante-neuf", 60: "soixante",
+      61: "soixante-et-un", 62: "soixante-deux", 63: "soixante-trois", 64: "soixante-quatre", 65: "soixante-cinq", 66: "soixante-six", 67: "soixante-sept", 68: "soixante-huit", 69: "soixante-neuf", 70: "soixante-dix",
+      71: "soixante-et-onze", 72: "soixante-douze", 73: "soixante-treize", 74: "soixante-quatorze", 75: "soixante-quinze", 76: "soixante-seize", 77: "soixante-dix-sept", 78: "soixante-dix-huit", 79: "soixante-dix-neuf", 80: "quatre-vingts",
+      81: "quatre-vingt-un", 82: "quatre-vingt-deux", 83: "quatre-vingt-trois", 84: "quatre-vingt-quatre", 85: "quatre-vingt-cinq", 86: "quatre-vingt-six", 87: "quatre-vingt-sept", 88: "quatre-vingt-huit", 89: "quatre-vingt-neuf", 90: "quatre-vingt-dix",
+      91: "quatre-vingt-onze", 92: "quatre-vingt-douze", 93: "quatre-vingt-treize", 94: "quatre-vingt-quatorze", 95: "quatre-vingt-quinze", 96: "quatre-vingt-seize", 97: "quatre-vingt-dix-sept", 98: "quatre-vingt-dix-huit", 99: "quatre-vingt-dix-neuf", 100: "cent"
+    },
+    es: {
+      0: "cero", 1: "uno", 2: "dos", 3: "tres", 4: "cuatro", 5: "cinco", 6: "seis", 7: "siete", 8: "ocho", 9: "nueve", 10: "diez",
+      11: "once", 12: "doce", 13: "trece", 14: "catorce", 15: "quince", 16: "dieciséis", 17: "diecisiete", 18: "dieciocho", 19: "diecinueve", 20: "veinte",
+      21: "veintiuno", 22: "veintidós", 23: "veintitrés", 24: "veinticuatro", 25: "veinticinco", 26: "veintiséis", 27: "veintisiete", 28: "veintiocho", 29: "veintinueve", 30: "treinta",
+      31: "treinta y uno", 32: "treinta y dos", 33: "treinta y tres", 34: "treinta y cuatro", 35: "treinta y cinco", 36: "treinta y seis", 37: "treinta y siete", 38: "treinta y ocho", 39: "treinta y nueve", 40: "cuarenta",
+      41: "cuarenta y uno", 42: "cuarenta y dos", 43: "cuarenta y tres", 44: "cuarenta y cuatro", 45: "cuarenta y cinco", 46: "cuarenta y seis", 47: "cuarenta y siete", 48: "cuarenta y ocho", 49: "cuarenta y nueve", 50: "cincuenta",
+      51: "cincuenta y uno", 52: "cincuenta y dos", 53: "cincuenta y tres", 54: "cincuenta y cuatro", 55: "cincuenta y cinco", 56: "cincuenta y seis", 57: "cincuenta y siete", 58: "cincuenta y ocho", 59: "cincuenta y nueve", 60: "sesenta",
+      61: "sesenta y uno", 62: "sesenta y dos", 63: "sesenta y tres", 64: "sesenta y cuatro", 65: "sesenta y cinco", 66: "sesenta y seis", 67: "sesenta y siete", 68: "sesenta y ocho", 69: "sesenta y nueve", 70: "setenta",
+      71: "setenta y uno", 72: "setenta y dos", 73: "setenta y tres", 74: "setenta y cuatro", 75: "setenta y cinco", 76: "setenta y seis", 77: "setenta y siete", 78: "setenta y ocho", 79: "setenta y nueve", 80: "ochenta",
+      81: "ochenta y uno", 82: "ochenta y dos", 83: "ochenta y tres", 84: "ochenta y cuatro", 85: "ochenta y cinco", 86: "ochenta y seis", 87: "ochenta y siete", 88: "ochenta y ocho", 89: "ochenta y nueve", 90: "noventa",
+      91: "noventa y uno", 92: "noventa y dos", 93: "noventa y tres", 94: "noventa y cuatro", 95: "noventa y cinco", 96: "noventa y seis", 97: "noventa y siete", 98: "noventa y ocho", 99: "noventa y nueve", 100: "cien"
+    },
+    en: {
+      0: "zero", 1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six", 7: "seven", 8: "eight", 9: "nine", 10: "ten",
+      11: "eleven", 12: "twelve", 13: "thirteen", 14: "fourteen", 15: "fifteen", 16: "sixteen", 17: "seventeen", 18: "eighteen", 19: "nineteen", 20: "twenty",
+      21: "twenty-one", 22: "twenty-two", 23: "twenty-three", 24: "twenty-four", 25: "twenty-five", 26: "twenty-six", 27: "twenty-seven", 28: "twenty-eight", 29: "twenty-nine", 30: "thirty",
+      31: "thirty-one", 32: "thirty-two", 33: "thirty-three", 34: "thirty-four", 35: "thirty-five", 36: "thirty-six", 37: "thirty-seven", 38: "thirty-eight", 39: "thirty-nine", 40: "forty",
+      41: "forty-one", 42: "forty-two", 43: "forty-three", 44: "forty-four", 45: "forty-five", 46: "forty-six", 47: "forty-seven", 48: "forty-eight", 49: "forty-nine", 50: "fifty",
+      51: "fifty-one", 52: "fifty-two", 53: "fifty-three", 54: "fifty-four", 55: "fifty-five", 56: "fifty-six", 57: "fifty-seven", 58: "fifty-eight", 59: "fifty-nine", 60: "sixty",
+      61: "sixty-one", 62: "sixty-two", 63: "sixty-three", 64: "sixty-four", 65: "sixty-five", 66: "sixty-six", 67: "sixty-seven", 68: "sixty-eight", 69: "sixty-nine", 70: "seventy",
+      71: "seventy-one", 72: "seventy-two", 73: "seventy-three", 74: "seventy-four", 75: "seventy-five", 76: "seventy-six", 77: "seventy-seven", 78: "seventy-eight", 79: "seventy-nine", 80: "eighty",
+      81: "eighty-one", 82: "eighty-two", 83: "eighty-three", 84: "eighty-four", 85: "eighty-five", 86: "eighty-six", 87: "eighty-seven", 88: "eighty-eight", 89: "eighty-nine", 90: "ninety",
+      91: "ninety-one", 92: "ninety-two", 93: "ninety-three", 94: "ninety-four", 95: "ninety-five", 96: "ninety-six", 97: "ninety-seven", 98: "ninety-eight", 99: "ninety-nine", 100: "one hundred"
+    }
+  }
 
   // Generate random exercises
   const generateAddition = () => {
@@ -81,6 +290,21 @@ export default function MathExercises({ onBack, progress, setProgress }: MathExe
     }
   }
 
+  const generateWriteNumber = () => {
+    // Generate a random number between 0 and 100
+    const number = Math.floor(Math.random() * 101)
+    const lang = 'fr' // Default to French, can be made dynamic later
+    const wordForm = numberToWord[lang][number]
+    
+    return {
+      question: `Écris le nombre : ${wordForm}`,
+      answer: number.toString(),
+      type: "writeNumber",
+      wordForm: wordForm,
+      number: number,
+    }
+  }
+
   const generateExercise = (type: string) => {
     switch (type) {
       case "addition":
@@ -91,6 +315,8 @@ export default function MathExercises({ onBack, progress, setProgress }: MathExe
         return generateMultiplication()
       case "division":
         return generateDivision()
+      case "writeNumber":
+        return generateWriteNumber()
       default:
         return generateAddition()
     }
@@ -102,30 +328,38 @@ export default function MathExercises({ onBack, progress, setProgress }: MathExe
     }
   }, [selectedType, currentExercise])
 
-  const checkAnswer = () => {
-    if (!exercise) return
-
-    const correct = Number.parseInt(userAnswer) === exercise.answer
-    setIsCorrect(correct)
-    setShowResult(true)
+  // Update checkAnswer to use the visible text input for writeNumber
+  const checkAnswer = async () => {
+    if (!exercise) return;
+    let answerToCheck = userAnswer.trim();
+    
+    // For writeNumber, always use the visible text input (from contenteditable)
+    // Compare as string to the correct answer
+    if (selectedType === 'writeNumber') {
+      answerToCheck = userAnswer.trim();
+    }
+    
+    const correct = answerToCheck === exercise.answer.toString();
+    setIsCorrect(correct);
+    setShowResult(true);
 
     if (correct) {
-      setScore(score + 1)
+      setScore(score + 1);
       setProgress((prev: any) => ({
         ...prev,
         math: {
           ...prev.math,
-          [selectedType!]: prev.math[selectedType!] + 1,
+          [selectedType!]: (prev.math[selectedType!] || 0) + 1,
         },
-      }))
+      }));
 
       // For multiplication, reveal part of the image
       if (selectedType === "multiplication") {
-        setRevealedParts((prev) => [...prev, currentExercise])
-        setImageProgress((prev) => prev + 1)
+        setRevealedParts((prev) => [...prev, currentExercise]);
+        setImageProgress((prev) => prev + 1);
       }
     }
-  }
+  };
 
   const nextExercise = () => {
     if (currentExercise < 9) {
@@ -224,28 +458,27 @@ export default function MathExercises({ onBack, progress, setProgress }: MathExe
           </div>
 
           <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold text-white mb-2 drop-shadow-lg">🔢 Mathématiques 🔢</h1>
-            <p className="text-xl text-white/90 drop-shadow">Choisis ton type d'exercice !</p>
+            <h1 className="text-4xl font-bold text-white mb-2 drop-shadow-lg">{translations[lang].mathTitle}</h1>
+            <p className="text-xl text-white/90 drop-shadow">{translations[lang].chooseType}</p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* Math Exercise Selection Grid */}
+          <div className="grid md:grid-cols-3 gap-6">
             <Card
               className="bg-white/95 backdrop-blur-sm shadow-xl hover:shadow-2xl transition-all duration-300 cursor-pointer transform hover:scale-105"
               onClick={() => setSelectedType("addition")}
             >
               <CardHeader className="text-center">
-                <div className="mx-auto w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mb-4">
+                <div className="mx-auto w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-500 rounded-full flex items-center justify-center mb-4">
                   <Plus className="h-8 w-8 text-white" />
                 </div>
-                <CardTitle className="text-2xl text-gray-800">Additions</CardTitle>
+                <CardTitle className="text-2xl text-gray-800">{translations[lang].additions}</CardTitle>
               </CardHeader>
               <CardContent className="text-center">
-                <div className="bg-green-100 p-3 rounded-lg mb-4">
-                  <p className="text-lg font-bold text-green-800">12 + 8 = ?</p>
-                </div>
-                <div className="flex justify-center items-center gap-2 text-sm text-gray-600">
-                  <Star className="h-4 w-4 text-yellow-500" />
-                  <span>{progress.math.addition} réussies</span>
+                <div className="space-y-2 text-gray-600">
+                  <div>• Nombres à 3 chiffres</div>
+                  <div>• Calcul mental</div>
+                  <div>• 10 exercices</div>
                 </div>
               </CardContent>
             </Card>
@@ -255,20 +488,17 @@ export default function MathExercises({ onBack, progress, setProgress }: MathExe
               onClick={() => setSelectedType("subtraction")}
             >
               <CardHeader className="text-center">
-                <div className="mx-auto w-16 h-16 bg-orange-500 rounded-full flex items-center justify-center mb-4">
+                <div className="mx-auto w-16 h-16 bg-gradient-to-br from-orange-500 to-yellow-400 rounded-full flex items-center justify-center mb-4">
                   <Minus className="h-8 w-8 text-white" />
                 </div>
-                <CardTitle className="text-2xl text-gray-800">Soustractions</CardTitle>
+                <CardTitle className="text-2xl text-gray-800">{translations[lang].subtractions}</CardTitle>
               </CardHeader>
               <CardContent className="text-center">
-                <div className="bg-orange-100 p-3 rounded-lg mb-4">
-                  <p className="text-lg font-bold text-orange-800">25 - 17 = ?</p>
+                <div className="space-y-2 text-gray-600">
+                  <div>• Nombres à 3 chiffres</div>
+                  <div>• Avec ou sans retenue</div>
+                  <div>• 10 exercices</div>
                 </div>
-                <div className="flex justify-center items-center gap-2 text-sm text-gray-600 mb-2">
-                  <Star className="h-4 w-4 text-yellow-500" />
-                  <span>{progress.math.subtraction} réussies</span>
-                </div>
-                <p className="text-xs text-gray-500">Avec aide pour poser le calcul</p>
               </CardContent>
             </Card>
 
@@ -277,44 +507,92 @@ export default function MathExercises({ onBack, progress, setProgress }: MathExe
               onClick={() => setSelectedType("multiplication")}
             >
               <CardHeader className="text-center">
-                <div className="mx-auto w-16 h-16 bg-purple-500 rounded-full flex items-center justify-center mb-4">
+                <div className="mx-auto w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center mb-4">
                   <MultiplyIcon className="h-8 w-8 text-white" />
                 </div>
-                <CardTitle className="text-2xl text-gray-800">Tables ×</CardTitle>
+                <CardTitle className="text-2xl text-gray-800">{translations[lang].multiplications}</CardTitle>
               </CardHeader>
               <CardContent className="text-center">
-                <div className="bg-purple-100 p-3 rounded-lg mb-4">
-                  <p className="text-lg font-bold text-purple-800">7 × 6 = ?</p>
+                <div className="space-y-2 text-gray-600">
+                  <div>• Tables jusqu'à 12</div>
+                  <div>• Image mystère</div>
+                  <div>• 10 exercices</div>
                 </div>
-                <div className="flex justify-center items-center gap-2 text-sm text-gray-600 mb-2">
-                  <Star className="h-4 w-4 text-yellow-500" />
-                  <span>{progress.math.multiplication} réussies</span>
-                </div>
-                <p className="text-xs text-gray-500">Révèle l'image mystère !</p>
               </CardContent>
             </Card>
+
             <Card
               className="bg-white/95 backdrop-blur-sm shadow-xl hover:shadow-2xl transition-all duration-300 cursor-pointer transform hover:scale-105"
               onClick={() => setSelectedType("division")}
             >
               <CardHeader className="text-center">
-                <div className="mx-auto w-16 h-16 bg-red-500 rounded-full flex items-center justify-center mb-4">
+                <div className="mx-auto w-16 h-16 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-full flex items-center justify-center mb-4">
                   <span className="text-2xl text-white font-bold">÷</span>
                 </div>
-                <CardTitle className="text-2xl text-gray-800">Divisions</CardTitle>
+                <CardTitle className="text-2xl text-gray-800">{translations[lang].divisions}</CardTitle>
               </CardHeader>
               <CardContent className="text-center">
-                <div className="bg-red-100 p-3 rounded-lg mb-4">
-                  <p className="text-lg font-bold text-red-800">56 ÷ 7 = ?</p>
+                <div className="space-y-2 text-gray-600">
+                  <div>• Divisions exactes</div>
+                  <div>• Quotients simples</div>
+                  <div>• 10 exercices</div>
                 </div>
-                <div className="flex justify-center items-center gap-2 text-sm text-gray-600 mb-2">
-                  <Star className="h-4 w-4 text-yellow-500" />
-                  <span>{progress.math.division || 0} réussies</span>
+              </CardContent>
+            </Card>
+
+            <Card
+              className="bg-white/95 backdrop-blur-sm shadow-xl hover:shadow-2xl transition-all duration-300 cursor-pointer transform hover:scale-105"
+              onClick={() => setSelectedType("writeNumber")}
+            >
+              <CardHeader className="text-center">
+                <div className="mx-auto w-16 h-16 bg-gradient-to-br from-pink-500 to-indigo-500 rounded-full flex items-center justify-center mb-4">
+                  <span className="text-2xl text-white font-bold">🔢</span>
                 </div>
-                <p className="text-xs text-gray-500">Divisions exactes</p>
+                <CardTitle className="text-2xl text-gray-800">{translations[lang].writeNumbers}</CardTitle>
+              </CardHeader>
+              <CardContent className="text-center">
+                <div className="space-y-2 text-gray-600">
+                  <div>• Nombres en lettres</div>
+                  <div>• Audio à écouter</div>
+                  <div>• 10 exercices</div>
+                </div>
               </CardContent>
             </Card>
           </div>
+
+          {/* Math Progress Overview (move to bottom) */}
+          <Card className="mt-8 bg-white/95 backdrop-blur-sm shadow-xl">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-2xl font-bold text-black">
+                <Trophy className="h-6 w-6 text-yellow-500" />
+                Mes progrès en mathématiques
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-row justify-center items-end w-full gap-12">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-600">{progress.math.addition}</div>
+                  <div className="text-base text-gray-800 mt-1">Débutant</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-orange-600">{progress.math.subtraction}</div>
+                  <div className="text-base text-gray-800 mt-1">Intermédiaire</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-purple-600">{progress.math.multiplication}</div>
+                  <div className="text-base text-gray-800 mt-1">Avancé</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-blue-600">{progress.math.division}</div>
+                  <div className="text-base text-gray-800 mt-1">Divisions</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-pink-600">{progress.math.writeNumber}</div>
+                  <div className="text-base text-gray-800 mt-1">Écrire</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     )
@@ -344,10 +622,12 @@ export default function MathExercises({ onBack, progress, setProgress }: MathExe
                 {selectedType === "subtraction" && <Minus className="h-6 w-6 text-orange-500" />}
                 {selectedType === "multiplication" && <MultiplyIcon className="h-6 w-6 text-purple-500" />}
                 {selectedType === "division" && <span className="text-2xl text-red-500 font-bold">÷</span>}
-                {selectedType === "addition" && "Addition"}
-                {selectedType === "subtraction" && "Soustraction"}
-                {selectedType === "multiplication" && "Multiplication"}
-                {selectedType === "division" && "Division"}
+                {selectedType === "writeNumber" && <span className="text-2xl text-indigo-500">🔢</span>}
+                {selectedType === "addition" && translations[lang].additions}
+                {selectedType === "subtraction" && translations[lang].subtractions}
+                {selectedType === "multiplication" && translations[lang].multiplications}
+                {selectedType === "division" && translations[lang].divisions}
+                {selectedType === "writeNumber" && translations[lang].writeNumbers}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -364,6 +644,96 @@ export default function MathExercises({ onBack, progress, setProgress }: MathExe
                       </div>
                     </div>
                   </div>
+                ) : selectedType === "writeNumber" ? (
+                  <div className="flex flex-col items-center gap-2 mb-4">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg font-semibold text-indigo-700">{exercise.wordForm}</span>
+                      <button
+                        aria-label="Écouter le nombre"
+                        className="p-2 rounded-full bg-indigo-100 hover:bg-indigo-200 transition"
+                        onClick={() => playAudio(exercise.wordForm, 'fr')}
+                      >
+                        <Volume2 className="w-5 h-5 text-indigo-700" />
+                      </button>
+                    </div>
+                    
+                    {/* Single large handwriting canvas */}
+                    <div className="relative w-[220px] h-[100px]">
+                      <canvas
+                        ref={numberCanvasRef}
+                        width={220}
+                        height={100}
+                        className="border-2 border-dashed border-indigo-300 rounded bg-white absolute top-0 left-0 w-full h-full z-0"
+                        onPointerDown={(e) => {
+                          setIsWriting(true);
+                          const canvas = numberCanvasRef.current;
+                          if (!canvas) return;
+                          const rect = canvas.getBoundingClientRect();
+                          const ctx = canvas.getContext("2d");
+                          if (!ctx) return;
+                          ctx.beginPath();
+                          ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+                        }}
+                        onPointerMove={(e) => {
+                          if (!isWriting) return;
+                          const canvas = numberCanvasRef.current;
+                          if (!canvas) return;
+                          const rect = canvas.getBoundingClientRect();
+                          const ctx = canvas.getContext("2d");
+                          if (!ctx) return;
+                          ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+                          ctx.stroke();
+                        }}
+                        onPointerUp={() => setIsWriting(false)}
+                        onPointerLeave={() => setIsWriting(false)}
+                        style={{ touchAction: "none", WebkitUserSelect: "none", userSelect: "none" }}
+                      />
+                      <div
+                        ref={scribbleInputRef}
+                        contentEditable
+                        suppressContentEditableWarning
+                        spellCheck={false}
+                        className="absolute top-0 left-0 w-full h-full z-10 text-3xl text-center flex items-center justify-center bg-transparent outline-none select-text"
+                        style={{ pointerEvents: isWriting ? 'none' : 'auto' }}
+                        onInput={handleScribbleInput}
+                        onFocus={e => {
+                          if (e.currentTarget.textContent === "") {
+                            e.currentTarget.textContent = "";
+                          }
+                        }}
+                        aria-label="Zone de saisie manuscrite ou clavier"
+                      >
+                        {userAnswer}
+                      </div>
+                    </div>
+                    
+                    <div className="flex gap-2 mt-2">
+                      <Button size="sm" onClick={() => {
+                        // Clear both canvas and text
+                        const canvas = numberCanvasRef.current;
+                        if (canvas) {
+                          const ctx = canvas.getContext("2d");
+                          if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        }
+                        clearScribbleInput();
+                      }} className="bg-gray-400 hover:bg-gray-600 text-white">Effacer</Button>
+                      
+                      <Button 
+                        size="sm" 
+                        onClick={async () => {
+                          if (userAnswer) return; // If text input exists, use it
+                          const recognized = await recognizeAllDigits();
+                          if (recognized) {
+                            setUserAnswer(recognized);
+                          }
+                        }}
+                        className="bg-indigo-500 hover:bg-indigo-600 text-white"
+                        disabled={!mnistModel}
+                      >
+                        Reconnaître
+                      </Button>
+                    </div>
+                  </div>
                 ) : (
                   <div className="bg-gray-100 p-6 rounded-lg mb-4">
                     <p className="text-4xl font-bold text-gray-800">{exercise.question} = ?</p>
@@ -372,14 +742,16 @@ export default function MathExercises({ onBack, progress, setProgress }: MathExe
               </div>
 
               <div className="space-y-4">
-                <Input
-                  type="number"
-                  value={userAnswer}
-                  onChange={(e) => setUserAnswer(e.target.value)}
-                  placeholder="Ta réponse..."
-                  className="text-2xl p-4 text-center"
-                  disabled={showResult}
-                />
+                {selectedType !== "writeNumber" && (
+                  <Input
+                    type="number"
+                    value={userAnswer}
+                    onChange={(e) => setUserAnswer(e.target.value)}
+                    placeholder="Ta réponse..."
+                    className="text-2xl p-4 text-center"
+                    disabled={showResult}
+                  />
+                )}
 
                 {selectedType === "subtraction" && (
                   <Button
@@ -396,7 +768,7 @@ export default function MathExercises({ onBack, progress, setProgress }: MathExe
 
                 {!showResult ? (
                   <Button
-                    onClick={checkAnswer}
+                    onClick={async () => await checkAnswer()}
                     disabled={!userAnswer.trim()}
                     className="w-full bg-blue-500 hover:bg-blue-600 text-white text-lg py-3"
                   >

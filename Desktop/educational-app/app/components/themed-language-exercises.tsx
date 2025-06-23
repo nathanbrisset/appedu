@@ -628,9 +628,18 @@ export default function ThemedLanguageExercises({ onBack, progress, setProgress,
   // Reset AI content when language changes
   const handleLanguageChange = (language: string) => {
     setSelectedLanguage(language)
-    setSelectedTheme(null)
-    setExerciseType(null)
-    resetExerciseState()
+    
+    // If a hero is pre-selected, skip theme selection and go directly to exercise types
+    if (preSelectedHero) {
+      setSelectedTheme(preSelectedHero)
+      setExerciseType(null)
+      resetExerciseState()
+    } else {
+      // Only reset theme if no hero is pre-selected
+      setSelectedTheme(null)
+      setExerciseType(null)
+      resetExerciseState()
+    }
   }
 
   // Text-to-Speech function
@@ -972,7 +981,7 @@ export default function ThemedLanguageExercises({ onBack, progress, setProgress,
               <span className="mr-2">🏠</span> Accueil
             </Button>
             <Button
-              onClick={() => setSelectedTheme(null)}
+              onClick={() => preSelectedHero ? setSelectedLanguage(null) : setSelectedTheme(null)}
               className="bg-white/20 hover:bg-white/30 text-white border-white/30"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
