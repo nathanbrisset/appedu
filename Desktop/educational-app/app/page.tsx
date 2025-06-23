@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { BookOpen, Calculator, Volume2, PenTool, Star, Trophy, Eye } from "lucide-react"
+import { BookOpen, Calculator, Volume2, PenTool, Star, Trophy, Eye, Settings } from "lucide-react"
 import ThemedLanguageExercises from "./components/themed-language-exercises"
 import MathExercises from "./components/math-exercises"
 import ReadingExercises from "./components/reading-exercises"
@@ -13,6 +13,7 @@ import AuthModal from "./components/auth-modal"
 import UserProfile from "./components/user-profile"
 import { supabase } from './utils/supabaseClient'
 import { v4 as uuidv4 } from 'uuid'
+import VoiceSettings from "./components/voice-settings"
 
 const translations = {
   fr: {
@@ -145,6 +146,9 @@ export default function HomePage() {
   const [isCheckingWriting, setIsCheckingWriting] = useState(false)
 
   const [progressLoaded, setProgressLoaded] = useState(false)
+
+  // Voice settings state
+  const [showVoiceSettings, setShowVoiceSettings] = useState(false)
 
   // Get or create device_id
   function getDeviceId(): string {
@@ -372,7 +376,6 @@ export default function HomePage() {
         setProgress={setProgressAndSync}
         preSelectedHero={selectedHero}
         lang={lang}
-        setLang={setLang}
       />
     )
   }
@@ -426,9 +429,7 @@ export default function HomePage() {
   if (currentModule === "writingCorrection") {
     return (
       <WritingCorrection 
-        onBack={() => setCurrentModule(null)}
-        lang={lang}
-        setLang={setLang}
+        onBack={() => setCurrentModule(null)} 
       />
     )
   }
@@ -853,6 +854,27 @@ export default function HomePage() {
             </Button>
           </div>
         </div>
+
+        {/* Voice Settings Button */}
+        <div className="fixed top-4 right-4 z-50">
+          <Button
+            onClick={() => setShowVoiceSettings(true)}
+            className="bg-purple-500 hover:bg-purple-600 text-white rounded-full p-3 shadow-lg"
+            size="sm"
+          >
+            <Settings className="h-5 w-5" />
+          </Button>
+        </div>
+
+        {/* Voice Settings Modal */}
+        {showVoiceSettings && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <VoiceSettings
+              lang={lang}
+              onClose={() => setShowVoiceSettings(false)}
+            />
+          </div>
+        )}
       </div>
 
       {/* Auth Modal */}

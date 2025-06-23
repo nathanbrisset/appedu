@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ArrowLeft, Volume2, Check, BookOpen, RotateCcw, Star, Sparkles } from "lucide-react"
 import { generateAIStory, fallbackContent } from "@/lib/ai-stories"
+import { speakText, speakWithAccent, stopSpeech, isSpeaking } from "@/lib/text-to-speech"
 
 interface ThemedLanguageExercisesProps {
   onBack: () => void
@@ -642,20 +643,33 @@ export default function ThemedLanguageExercises({ onBack, progress, setProgress,
     }
   }
 
-  // Text-to-Speech function
-  const speakText = (text: string, lang: string) => {
-    if ("speechSynthesis" in window) {
-      const utterance = new SpeechSynthesisUtterance(text)
-      const langCodes = {
-        catalan: "ca-ES",
-        french: "fr-FR",
-        spanish: "es-ES",
-        english: "en-US",
+  // Enhanced Text-to-Speech function with local accents
+  const speakTextWithAccent = (text: string, lang: string, accent: 'standard' | 'local' | 'child' = 'standard') => {
+    // Stop any current speech first
+    stopSpeech()
+    
+    // Use the new TTS utility with accent selection
+    speakWithAccent(text, lang, accent).catch(error => {
+      console.error('Speech synthesis error:', error)
+      // Fallback to basic speech synthesis
+      if ("speechSynthesis" in window) {
+        const utterance = new SpeechSynthesisUtterance(text)
+        const langCodes = {
+          catalan: "ca-ES",
+          french: "fr-FR",
+          spanish: "es-ES",
+          english: "en-US",
+        }
+        utterance.lang = langCodes[lang as keyof typeof langCodes]
+        utterance.rate = 0.7
+        speechSynthesis.speak(utterance)
       }
-      utterance.lang = langCodes[lang as keyof typeof langCodes]
-      utterance.rate = 0.7
-      speechSynthesis.speak(utterance)
-    }
+    })
+  }
+
+  // Speak text with standard accent
+  const speakText = (text: string, lang: string) => {
+    speakTextWithAccent(text, lang, 'standard')
   }
 
   // Optimized Apple Pencil drawing functions
@@ -1104,11 +1118,14 @@ export default function ThemedLanguageExercises({ onBack, progress, setProgress,
                 </div>
                 <div className="flex gap-4 justify-center">
                   <Button
-                    onClick={() => speakText(exercise.text, selectedLanguage!)}
+                    onClick={() => speakTextWithAccent(exercise.text, selectedLanguage!, 'local')}
                     className="bg-blue-500 hover:bg-blue-600 text-white text-lg px-8 py-4"
                   >
                     <Volume2 className="h-6 w-6 mr-2" />
-                    Écouter l'histoire
+                    {selectedLanguage === 'french' && "Écouter l'histoire"}
+                    {selectedLanguage === 'spanish' && "Escuchar la historia"}
+                    {selectedLanguage === 'english' && "Listen to the story"}
+                    {selectedLanguage === 'catalan' && "Escoltar la història"}
                   </Button>
                   
                   <Button
@@ -1126,7 +1143,7 @@ export default function ThemedLanguageExercises({ onBack, progress, setProgress,
                 <div className="flex items-center justify-center gap-2">
                   <p className="text-lg font-medium text-center text-gray-800">{exercise.question}</p>
                   <Button
-                    onClick={() => speakText(exercise.question, selectedLanguage!)}
+                    onClick={() => speakTextWithAccent(exercise.question, selectedLanguage!, 'child')}
                     className="bg-yellow-500 hover:bg-yellow-600 text-white p-2"
                     size="sm"
                   >
@@ -1302,11 +1319,14 @@ export default function ThemedLanguageExercises({ onBack, progress, setProgress,
                 </div>
                 <div className="flex gap-4 justify-center">
                   <Button
-                    onClick={() => speakText(exercise.text, selectedLanguage!)}
+                    onClick={() => speakTextWithAccent(exercise.text, selectedLanguage!, 'local')}
                     className="bg-purple-500 hover:bg-purple-600 text-white text-lg px-8 py-4"
                   >
                     <Volume2 className="h-6 w-6 mr-2" />
-                    Écouter l'histoire
+                    {selectedLanguage === 'french' && "Écouter l'histoire"}
+                    {selectedLanguage === 'spanish' && "Escuchar la historia"}
+                    {selectedLanguage === 'english' && "Listen to the story"}
+                    {selectedLanguage === 'catalan' && "Escoltar la història"}
                   </Button>
                   
                   <Button
@@ -1326,7 +1346,7 @@ export default function ThemedLanguageExercises({ onBack, progress, setProgress,
                     Question {currentQuestionIndex + 1} : {exercise.questions[currentQuestionIndex].question}
                   </p>
                   <Button
-                    onClick={() => speakText(exercise.questions[currentQuestionIndex].question, selectedLanguage!)}
+                    onClick={() => speakTextWithAccent(exercise.questions[currentQuestionIndex].question, selectedLanguage!, 'child')}
                     className="bg-yellow-500 hover:bg-yellow-600 text-white p-2"
                     size="sm"
                   >

@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { ArrowLeft, Plus, Minus, ImagePlusIcon as MultiplyIcon, Star, Trophy, Lightbulb, RotateCcw, Volume2 } from "lucide-react"
 import * as tf from '@tensorflow/tfjs';
+import { speakText, speakNumber, stopSpeech, isSpeaking } from "@/lib/text-to-speech"
 
 interface MathExercisesProps {
   onBack: () => void
@@ -179,18 +180,44 @@ export default function MathExercises({ onBack, progress, setProgress, lang, set
     }
   }
 
-  // Play audio for number words
+  // Enhanced audio function with local accents
   const playAudio = (text: string, lang: string = 'fr') => {
-    if ("speechSynthesis" in window) {
-      setAudioPlaying(true)
-      const utterance = new SpeechSynthesisUtterance(text)
-      const langCodes = { fr: "fr-FR", es: "es-ES", en: "en-US" }
-      utterance.lang = langCodes[lang as keyof typeof langCodes] || "fr-FR"
-      utterance.rate = 0.8
-      utterance.onend = () => setAudioPlaying(false)
-      utterance.onerror = () => setAudioPlaying(false)
-      speechSynthesis.speak(utterance)
-    }
+    // Stop any current speech first
+    stopSpeech()
+    
+    setAudioPlaying(true)
+    
+    // Use the new TTS utility for better pronunciation
+    speakText(text, lang, { rate: 0.8 }).then(() => {
+      setAudioPlaying(false)
+    }).catch(error => {
+      console.error('Speech synthesis error:', error)
+      // Fallback to basic speech synthesis
+      if ("speechSynthesis" in window) {
+        const utterance = new SpeechSynthesisUtterance(text)
+        const langCodes = { fr: "fr-FR", es: "es-ES", en: "en-US" }
+        utterance.lang = langCodes[lang as keyof typeof langCodes] || "fr-FR"
+        utterance.rate = 0.8
+        utterance.onend = () => setAudioPlaying(false)
+        utterance.onerror = () => setAudioPlaying(false)
+        speechSynthesis.speak(utterance)
+      } else {
+        setAudioPlaying(false)
+      }
+    })
+  }
+
+  // Play number with proper pronunciation
+  const playNumberAudio = (number: number, lang: string = 'fr') => {
+    stopSpeech()
+    setAudioPlaying(true)
+    
+    speakNumber(number, lang).then(() => {
+      setAudioPlaying(false)
+    }).catch(error => {
+      console.error('Number speech error:', error)
+      setAudioPlaying(false)
+    })
   }
 
   // Number to word conversion for different languages

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { ArrowLeft, Volume2, Mic, Check, X, Star } from "lucide-react"
+import { speakText, speakWithAccent, stopSpeech, isSpeaking } from "@/lib/text-to-speech"
 
 interface LanguageExercisesProps {
   onBack: () => void
@@ -67,20 +68,33 @@ export default function LanguageExercises({ onBack, progress, setProgress }: Lan
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [isDrawing, setIsDrawing] = useState(false)
 
-  // Text-to-Speech function
-  const speakText = (text: string, lang: string) => {
-    if ("speechSynthesis" in window) {
-      const utterance = new SpeechSynthesisUtterance(text)
-      const langCodes = {
-        catalan: "ca-ES",
-        french: "fr-FR",
-        spanish: "es-ES",
-        english: "en-US",
+  // Enhanced Text-to-Speech function with local accents
+  const speakTextWithAccent = (text: string, lang: string, accent: 'standard' | 'local' | 'child' = 'standard') => {
+    // Stop any current speech first
+    stopSpeech()
+    
+    // Use the new TTS utility with accent selection
+    speakWithAccent(text, lang, accent).catch(error => {
+      console.error('Speech synthesis error:', error)
+      // Fallback to basic speech synthesis
+      if ("speechSynthesis" in window) {
+        const utterance = new SpeechSynthesisUtterance(text)
+        const langCodes = {
+          catalan: "ca-ES",
+          french: "fr-FR",
+          spanish: "es-ES",
+          english: "en-US",
+        }
+        utterance.lang = langCodes[lang as keyof typeof langCodes]
+        utterance.rate = 0.8
+        speechSynthesis.speak(utterance)
       }
-      utterance.lang = langCodes[lang as keyof typeof langCodes]
-      utterance.rate = 0.8
-      speechSynthesis.speak(utterance)
-    }
+    })
+  }
+
+  // Speak text with standard accent
+  const speakText = (text: string, lang: string) => {
+    speakTextWithAccent(text, lang, 'standard')
   }
 
   // Canvas drawing for writing exercises
@@ -337,11 +351,14 @@ export default function LanguageExercises({ onBack, progress, setProgress }: Lan
             <CardContent className="space-y-6">
               <div className="text-center">
                 <Button
-                  onClick={() => speakText(exercise.text, selectedLanguage!)}
+                  onClick={() => speakTextWithAccent(exercise.text, selectedLanguage!, 'local')}
                   className="bg-blue-500 hover:bg-blue-600 text-white text-lg px-8 py-4"
                 >
                   <Volume2 className="h-6 w-6 mr-2" />
-                  Écouter la phrase
+                  {selectedLanguage === 'french' && "Écouter la phrase"}
+                  {selectedLanguage === 'spanish' && "Escuchar la frase"}
+                  {selectedLanguage === 'english' && "Listen to the sentence"}
+                  {selectedLanguage === 'catalan' && "Escoltar la frase"}
                 </Button>
               </div>
 
@@ -447,11 +464,14 @@ export default function LanguageExercises({ onBack, progress, setProgress }: Lan
                   <p className="text-2xl font-bold text-blue-800">{currentWord}</p>
                 </div>
                 <Button
-                  onClick={() => speakText(currentWord, selectedLanguage!)}
+                  onClick={() => speakTextWithAccent(currentWord, selectedLanguage!, 'child')}
                   className="bg-blue-500 hover:bg-blue-600 text-white"
                 >
                   <Volume2 className="h-4 w-4 mr-2" />
-                  Écouter le mot
+                  {selectedLanguage === 'french' && "Écouter le mot"}
+                  {selectedLanguage === 'spanish' && "Escuchar la palabra"}
+                  {selectedLanguage === 'english' && "Listen to the word"}
+                  {selectedLanguage === 'catalan' && "Escoltar la paraula"}
                 </Button>
               </div>
 
