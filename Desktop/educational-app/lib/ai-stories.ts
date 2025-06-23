@@ -27,9 +27,8 @@ export interface AIWritingExercise {
 
 export async function generateAIStory(request: AIStoryRequest): Promise<AIListeningStory | AIReadingStory | AIWritingExercise> {
   try {
-    // Use absolute URL that works in both development and production
-    const baseUrl = typeof window !== 'undefined' ? window.location.origin : process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
-    const response = await fetch(`${baseUrl}/api/generate-story`, {
+    // Use relative URL which works in both development and production
+    const response = await fetch('/api/generate-story', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
