@@ -36,15 +36,36 @@ export default function VoiceSettings({ lang, onClose }: VoiceSettingsProps) {
   const [isTesting, setIsTesting] = useState(false)
 
   useEffect(() => {
+    // Load saved settings first
+    const loadSavedSettings = () => {
+      const savedSettings = localStorage.getItem(`voice-settings-${lang}`)
+      if (savedSettings) {
+        try {
+          const settings = JSON.parse(savedSettings)
+          setSelectedAccent(settings.accent || 'standard')
+          setRate([settings.rate || 0.8])
+          setPitch([settings.pitch || 1.0])
+          setVolume([settings.volume || 1.0])
+          setSelectedVoice(settings.voice || '')
+        } catch (error) {
+          console.error('Error loading voice settings:', error)
+        }
+      }
+    }
+
+    loadSavedSettings()
+
     // Load available voices
     const loadVoices = () => {
       const voices = tts.getAvailableVoices(lang)
       setAvailableVoices(voices)
       
-      // Set default voice
-      const bestVoice = tts.getBestVoice(lang)
-      if (bestVoice) {
-        setSelectedVoice(bestVoice.name)
+      // Set default voice if not already set
+      if (!selectedVoice) {
+        const bestVoice = tts.getBestVoice(lang)
+        if (bestVoice) {
+          setSelectedVoice(bestVoice.name)
+        }
       }
     }
 
@@ -56,7 +77,7 @@ export default function VoiceSettings({ lang, onClose }: VoiceSettingsProps) {
         speechSynthesis.onvoiceschanged = loadVoices
       }
     }
-  }, [lang])
+  }, [lang, selectedVoice])
 
   const testVoice = () => {
     if (isTesting) {
@@ -68,11 +89,15 @@ export default function VoiceSettings({ lang, onClose }: VoiceSettingsProps) {
     const testText = testPhrases[lang as keyof typeof testPhrases] || testPhrases.en
     setIsTesting(true)
 
-    speakText(testText, lang, {
+    // Apply current settings for testing
+    const testSettings = {
       rate: rate[0],
       pitch: pitch[0],
-      volume: volume[0]
-    }).then(() => {
+      volume: volume[0],
+      voice: selectedVoice
+    }
+
+    speakText(testText, lang, testSettings).then(() => {
       setIsTesting(false)
     }).catch(() => {
       setIsTesting(false)
@@ -90,6 +115,10 @@ export default function VoiceSettings({ lang, onClose }: VoiceSettingsProps) {
     }
     
     localStorage.setItem(`voice-settings-${lang}`, JSON.stringify(settings))
+    
+    // Apply settings immediately to the TTS system
+    tts.updateSettings(lang, settings)
+    
     onClose()
   }
 

@@ -476,21 +476,21 @@ export default function HomePage() {
           </CardHeader>
           <CardContent>
             {progressLoaded ? (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-blue-600">
-                    {Object.values(userProgress.languages).reduce((a, b) => a + b, 0)}
-                  </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-blue-600">
+                  {Object.values(userProgress.languages).reduce((a, b) => a + b, 0)}
+                </div>
                   <div className="text-sm text-gray-600">{t.languages}</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-600">
+                  {Object.values(userProgress.math).reduce((a, b) => a + b, 0)}
                 </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-green-600">
-                    {Object.values(userProgress.math).reduce((a, b) => a + b, 0)}
-                  </div>
                   <div className="text-sm text-gray-600">{t.math}</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-purple-600">
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-purple-600">
                     {Object.values(userProgress.reading).reduce((a, b) => a + b, 0)}
                   </div>
                   <div className="text-sm text-gray-600">{t.reading}</div>
@@ -723,46 +723,46 @@ export default function HomePage() {
                 </div>
               </CardContent>
             </Card>
-            {/* Math Module */}
-            <Card
+          {/* Math Module */}
+          <Card
               className={`bg-white/95 backdrop-blur-sm shadow-xl hover:shadow-2xl transition-all duration-300 cursor-pointer transform hover:scale-105 relative ${
                 selectedQuickAccess === "math" ? "ring-4 ring-purple-400" : ""
               }`}
-              onClick={() => setCurrentModule("math")}
-            >
+            onClick={() => setCurrentModule("math")}
+          >
               {selectedQuickAccess === "math" && (
                 <div className="absolute -top-2 -right-2 bg-purple-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold">
                   🏁
                 </div>
               )}
-              <CardHeader className="text-center">
-                <div className="mx-auto w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-500 rounded-full flex items-center justify-center mb-4">
-                  <Calculator className="h-8 w-8 text-white" />
-                </div>
+            <CardHeader className="text-center">
+              <div className="mx-auto w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-500 rounded-full flex items-center justify-center mb-4">
+                <Calculator className="h-8 w-8 text-white" />
+              </div>
                 <CardTitle className="text-xl text-gray-800">{t.math}</CardTitle>
-              </CardHeader>
-              <CardContent className="text-center">
-                <div className="grid grid-cols-1 gap-2 mb-4">
-                  <div className="bg-green-100 p-2 rounded-lg">
-                    <span className="text-lg">➕</span>
-                    <span className="ml-2 font-medium">Additions</span>
-                  </div>
-                  <div className="bg-orange-100 p-2 rounded-lg">
-                    <span className="text-lg">➖</span>
-                    <span className="ml-2 font-medium">Soustractions</span>
-                  </div>
-                  <div className="bg-purple-100 p-2 rounded-lg">
-                    <span className="text-lg">✖️</span>
+            </CardHeader>
+            <CardContent className="text-center">
+              <div className="grid grid-cols-1 gap-2 mb-4">
+                <div className="bg-green-100 p-2 rounded-lg">
+                  <span className="text-lg">➕</span>
+                  <span className="ml-2 font-medium">Additions</span>
+                </div>
+                <div className="bg-orange-100 p-2 rounded-lg">
+                  <span className="text-lg">➖</span>
+                  <span className="ml-2 font-medium">Soustractions</span>
+                </div>
+                <div className="bg-purple-100 p-2 rounded-lg">
+                  <span className="text-lg">✖️</span>
                     <span className="ml-2 font-medium">Multiplication</span>
                   </div>
-                </div>
-                <div className="flex justify-center gap-2 text-sm text-gray-600">
-                  <Star className="h-4 w-4" />
+              </div>
+              <div className="flex justify-center gap-2 text-sm text-gray-600">
+                <Star className="h-4 w-4" />
                   <span>Calcul mental</span>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
         </div>
 
         {/* Writing Correction CTA */}
@@ -856,7 +856,7 @@ export default function HomePage() {
         </div>
 
         {/* Voice Settings Button */}
-        <div className="fixed top-4 right-4 z-50">
+        <div className="fixed top-4 left-4 z-50">
           <Button
             onClick={() => setShowVoiceSettings(true)}
             className="bg-purple-500 hover:bg-purple-600 text-white rounded-full p-3 shadow-lg"

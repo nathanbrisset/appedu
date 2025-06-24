@@ -3,6 +3,7 @@ export interface AIStoryRequest {
   theme: string
   exerciseType: 'listening' | 'reading' | 'writing'
   difficulty?: 'beginner' | 'intermediate' | 'advanced'
+  wordCount?: 'under100' | '100-200' | 'over200'
 }
 
 export interface AIListeningStory {
@@ -37,7 +38,8 @@ export async function generateAIStory(request: AIStoryRequest): Promise<AIListen
         language: request.language,
         theme: request.theme,
         exerciseType: request.exerciseType,
-        difficulty: request.difficulty || 'beginner'
+        difficulty: request.difficulty || 'beginner',
+        wordCount: request.wordCount || '100-200'
       })
     })
 

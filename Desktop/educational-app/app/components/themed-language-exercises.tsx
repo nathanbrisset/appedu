@@ -808,7 +808,12 @@ export default function ThemedLanguageExercises({ onBack, progress, setProgress,
     let userAnswerText = userAnswer.trim().toLowerCase()
 
     if (exerciseType === 'listening') {
-      correctAnswer = exercise.answer.toLowerCase()
+      // Handle both old format (single answer) and new format (questions array)
+      if (exercise.questions && exercise.questions[currentQuestionIndex]) {
+        correctAnswer = exercise.questions[currentQuestionIndex].answer.toLowerCase()
+      } else if (exercise.answer) {
+        correctAnswer = exercise.answer.toLowerCase()
+      }
     } else if (exerciseType === 'reading') {
       correctAnswer = exercise.questions[currentQuestionIndex].answer.toLowerCase()
     }
@@ -845,10 +850,12 @@ export default function ThemedLanguageExercises({ onBack, progress, setProgress,
     if (!selectedLanguage || !selectedTheme) return
 
     const themeData = safeThemeData(selectedLanguage as any, selectedTheme as any)
+    const currentExerciseData = getCurrentExerciseData()
 
-    if (exerciseType === "reading") {
-      const reading = themeData.reading[currentExercise]
-      if (reading && currentQuestionIndex < reading.questions.length - 1) {
+    // Check if there are more questions in the current exercise
+    if (exerciseType === "reading" || exerciseType === "listening") {
+      const questions = currentExerciseData?.questions || []
+      if (questions.length > 0 && currentQuestionIndex < questions.length - 1) {
         setCurrentQuestionIndex(currentQuestionIndex + 1)
         setShowResult(false)
         setUserAnswer("")
@@ -1141,9 +1148,23 @@ export default function ThemedLanguageExercises({ onBack, progress, setProgress,
 
               <div className="bg-yellow-100 p-4 rounded-lg">
                 <div className="flex items-center justify-center gap-2">
-                  <p className="text-lg font-medium text-center text-gray-800">{exercise.question}</p>
+                  <p className="text-lg font-medium text-center text-gray-800">
+                    {/* Handle both old format (single question) and new format (questions array) */}
+                    {exercise.questions && exercise.questions[currentQuestionIndex] ? (
+                      <>
+                        Question {currentQuestionIndex + 1} : {exercise.questions[currentQuestionIndex].question}
+                      </>
+                    ) : (
+                      exercise.question
+                    )}
+                  </p>
                   <Button
-                    onClick={() => speakTextWithAccent(exercise.question, selectedLanguage!, 'child')}
+                    onClick={() => {
+                      const questionText = exercise.questions && exercise.questions[currentQuestionIndex] 
+                        ? exercise.questions[currentQuestionIndex].question 
+                        : exercise.question
+                      speakTextWithAccent(questionText, selectedLanguage!, 'child')
+                    }}
                     className="bg-yellow-500 hover:bg-yellow-600 text-white p-2"
                     size="sm"
                   >
@@ -1229,12 +1250,31 @@ export default function ThemedLanguageExercises({ onBack, progress, setProgress,
                     {!isCorrect && (
                       <div className="mt-2 text-sm">
                         <p>Ta réponse : <strong>"{userAnswer}"</strong></p>
-                        <p>Réponse correcte : <strong>"{exercise.answer}"</strong></p>
+                        <p>Réponse correcte : <strong>"{
+                          exercise.questions && exercise.questions[currentQuestionIndex] 
+                            ? exercise.questions[currentQuestionIndex].answer 
+                            : exercise.answer
+                        }"</strong></p>
                       </div>
                     )}
                   </div>
 
                   <div className="flex gap-4">
+                    {/* Show Next Question button if there are more questions */}
+                    {exercise.questions && exercise.questions.length > 1 && currentQuestionIndex < exercise.questions.length - 1 && (
+                      <Button
+                        onClick={() => {
+                          setCurrentQuestionIndex(currentQuestionIndex + 1)
+                          setShowResult(false)
+                          setUserAnswer("")
+                          clearCanvas()
+                        }}
+                        className="flex-1 bg-blue-500 hover:bg-blue-600 text-white text-lg py-3"
+                      >
+                        Question suivante
+                      </Button>
+                    )}
+                    
                     <Button
                       onClick={generateNewStory}
                       disabled={isGenerating}
@@ -1343,10 +1383,22 @@ export default function ThemedLanguageExercises({ onBack, progress, setProgress,
               <div className="bg-yellow-100 p-4 rounded-lg">
                 <div className="flex items-center justify-center gap-2">
                   <p className="text-lg font-medium text-center text-gray-800">
-                    Question {currentQuestionIndex + 1} : {exercise.questions[currentQuestionIndex].question}
+                    {/* Handle both old format (single question) and new format (questions array) */}
+                    {exercise.questions && exercise.questions[currentQuestionIndex] ? (
+                      <>
+                        Question {currentQuestionIndex + 1} : {exercise.questions[currentQuestionIndex].question}
+                      </>
+                    ) : (
+                      exercise.question
+                    )}
                   </p>
                   <Button
-                    onClick={() => speakTextWithAccent(exercise.questions[currentQuestionIndex].question, selectedLanguage!, 'child')}
+                    onClick={() => {
+                      const questionText = exercise.questions && exercise.questions[currentQuestionIndex] 
+                        ? exercise.questions[currentQuestionIndex].question 
+                        : exercise.question
+                      speakTextWithAccent(questionText, selectedLanguage!, 'child')
+                    }}
                     className="bg-yellow-500 hover:bg-yellow-600 text-white p-2"
                     size="sm"
                   >
@@ -1432,12 +1484,31 @@ export default function ThemedLanguageExercises({ onBack, progress, setProgress,
                     {!isCorrect && (
                       <div className="mt-2 text-sm">
                         <p>Ta réponse : <strong>"{userAnswer}"</strong></p>
-                        <p>Réponse correcte : <strong>"{exercise.questions[currentQuestionIndex].answer}"</strong></p>
+                        <p>Réponse correcte : <strong>"{
+                          exercise.questions && exercise.questions[currentQuestionIndex] 
+                            ? exercise.questions[currentQuestionIndex].answer 
+                            : exercise.answer
+                        }"</strong></p>
                       </div>
                     )}
                   </div>
 
                   <div className="flex gap-4">
+                    {/* Show Next Question button if there are more questions */}
+                    {exercise.questions && exercise.questions.length > 1 && currentQuestionIndex < exercise.questions.length - 1 && (
+                      <Button
+                        onClick={() => {
+                          setCurrentQuestionIndex(currentQuestionIndex + 1)
+                          setShowResult(false)
+                          setUserAnswer("")
+                          clearCanvas()
+                        }}
+                        className="flex-1 bg-blue-500 hover:bg-blue-600 text-white text-lg py-3"
+                      >
+                        Question suivante
+                      </Button>
+                    )}
+                    
                     <Button
                       onClick={generateNewStory}
                       disabled={isGenerating}

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(request: NextRequest) {
   try {
-    const { language, theme, exerciseType, difficulty } = await request.json()
+    const { language, theme, exerciseType, difficulty, wordCount } = await request.json()
 
     // Validate required fields
     if (!language || !theme || !exerciseType) {
@@ -68,27 +68,41 @@ export async function POST(request: NextRequest) {
     if (exerciseType === 'listening') {
       systemPrompt = `You are a children's educational content creator. Create engaging, age-appropriate content in ${languageMap[language as keyof typeof languageMap]} for kids learning the language.`
       
-      prompt = `Create a short story (50-80 words) in ${languageMap[language as keyof typeof languageMap]} about ${themeMap[theme as keyof typeof themeMap]} with ${difficultyMap[difficulty as keyof typeof difficultyMap]}. 
+      prompt = `Create a longer story (200-300 words) in ${languageMap[language as keyof typeof languageMap]} about ${themeMap[theme as keyof typeof themeMap]} with ${difficultyMap[difficulty as keyof typeof difficultyMap]}. 
 
 The story should be:
 - Engaging and fun for children aged 6-12
 - Educational and age-appropriate
-- Include a simple question about the story content
+- 200-300 words long with multiple paragraphs
+- Include 3 comprehension questions about the story content
 - Use vocabulary suitable for ${difficulty} level
 
 Format the response as JSON:
 {
-  "text": "the story text",
-  "question": "a simple question about the story",
-  "answer": "the expected answer"
+  "text": "the story text (200-300 words)",
+  "questions": [
+    {"question": "question 1", "answer": "answer 1"},
+    {"question": "question 2", "answer": "answer 2"},
+    {"question": "question 3", "answer": "answer 3"}
+  ]
 }`
     } else if (exerciseType === 'reading') {
       systemPrompt = `You are a children's educational content creator. Create engaging, age-appropriate reading content in ${languageMap[language as keyof typeof languageMap]} for kids learning the language.`
       
+      // Adjust word count based on selection
+      let targetWordCount = "200-300 words, multi-paragraph, with dialogue and description"
+      if (wordCount === 'under100') {
+        targetWordCount = "50-100 words, simple and engaging"
+      } else if (wordCount === '100-200') {
+        targetWordCount = "100-200 words, with some dialogue and description"
+      } else if (wordCount === 'over200') {
+        targetWordCount = "250-350 words, multi-paragraph, with rich dialogue and detailed description"
+      }
+      
       prompt = `Create a reading story in ${languageMap[language as keyof typeof languageMap]} about ${themeMap[theme as keyof typeof themeMap]} with ${difficultyMap[difficulty as keyof typeof difficultyMap]}.
 
 The story should be:
-- 100-150 words for ${difficulty} level
+- ${targetWordCount}
 - Engaging and fun for children aged 6-12
 - Include a title and 2-3 comprehension questions
 - Use vocabulary suitable for ${difficulty} level
@@ -105,11 +119,22 @@ Format the response as JSON:
     } else if (exerciseType === 'writing') {
       systemPrompt = `You are a children's educational content creator. Create engaging, age-appropriate writing prompts in ${languageMap[language as keyof typeof languageMap]} for kids learning the language.`
       
+      // Adjust word count target based on selection
+      let targetWordCount = "150-200 words"
+      if (wordCount === 'under100') {
+        targetWordCount = "50-100 words"
+      } else if (wordCount === '100-200') {
+        targetWordCount = "100-200 words"
+      } else if (wordCount === 'over200') {
+        targetWordCount = "200-300 words"
+      }
+      
       prompt = `Create a creative writing exercise in ${languageMap[language as keyof typeof languageMap]} about ${themeMap[theme as keyof typeof themeMap]} with ${difficultyMap[difficulty as keyof typeof difficultyMap]}.
 
 The exercise should include:
 - 5-7 vocabulary words related to the theme
-- A creative writing prompt
+- A creative, detailed, multi-paragraph writing prompt that encourages a story of ${targetWordCount}
+- The prompt should inspire creativity, description, and dialogue
 - Age-appropriate for children 6-12
 
 Format the response as JSON:

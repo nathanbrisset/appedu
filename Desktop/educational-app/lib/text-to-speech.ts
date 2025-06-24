@@ -78,11 +78,22 @@ export class TextToSpeech {
   private synthesis: SpeechSynthesis | null = null
   private currentUtterance: SpeechSynthesisUtterance | null = null
   private isSpeaking = false
+  private settings: { [key: string]: any } = {}
 
   constructor() {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       this.synthesis = window.speechSynthesis
     }
+  }
+
+  // Update settings for a specific language
+  updateSettings(lang: string, settings: any): void {
+    this.settings[lang] = { ...this.settings[lang], ...settings }
+  }
+
+  // Get settings for a specific language
+  getSettings(lang: string): any {
+    return this.settings[lang] || {}
   }
 
   // Get available voices for a specific language
@@ -131,16 +142,26 @@ export class TextToSpeech {
       const voiceLang = languageToVoiceMap[lang] || lang
       utterance.lang = voiceLang
 
-      // Get the best voice for the language
-      const voice = this.getBestVoice(lang)
+      // Get saved settings for this language
+      const savedSettings = this.getSettings(lang)
+
+      // Get the best voice for the language or use saved voice
+      let voice = null
+      if (savedSettings.voice) {
+        const voices = this.getAvailableVoices(lang)
+        voice = voices.find(v => v.name === savedSettings.voice)
+      }
+      if (!voice) {
+        voice = this.getBestVoice(lang)
+      }
       if (voice) {
         utterance.voice = voice
       }
 
-      // Set speech parameters
-      utterance.rate = options.rate ?? voiceConfigs[voiceLang]?.rate ?? 0.8
-      utterance.pitch = options.pitch ?? voiceConfigs[voiceLang]?.pitch ?? 1.0
-      utterance.volume = options.volume ?? 1.0
+      // Set speech parameters (use saved settings as defaults, then override with options)
+      utterance.rate = options.rate ?? savedSettings.rate ?? voiceConfigs[voiceLang]?.rate ?? 0.8
+      utterance.pitch = options.pitch ?? savedSettings.pitch ?? voiceConfigs[voiceLang]?.pitch ?? 1.0
+      utterance.volume = options.volume ?? savedSettings.volume ?? 1.0
 
       // Event handlers
       utterance.onstart = () => {
@@ -228,6 +249,18 @@ export const tts = new TextToSpeech()
 
 // Convenience functions
 export const speakText = (text: string, lang: string, options?: Partial<VoiceConfig>) => {
+  // Load saved settings from localStorage and apply them
+  const savedSettings = localStorage.getItem(`voice-settings-${lang}`)
+  if (savedSettings) {
+    try {
+      const settings = JSON.parse(savedSettings)
+      // Merge saved settings with provided options (options take precedence)
+      const mergedOptions = { ...settings, ...options }
+      return tts.speak(text, lang, mergedOptions)
+    } catch (error) {
+      console.error('Error loading voice settings:', error)
+    }
+  }
   return tts.speak(text, lang, options)
 }
 

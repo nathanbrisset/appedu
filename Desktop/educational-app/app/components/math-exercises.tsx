@@ -56,17 +56,20 @@ export default function MathExercises({ onBack, progress, setProgress, lang, set
   const [showResult, setShowResult] = useState(false)
   const [isCorrect, setIsCorrect] = useState(false)
   const [score, setScore] = useState(0)
-  const [exercise, setExercise] = useState<any>(null)
   const [showHint, setShowHint] = useState(false)
-  const [revealedParts, setRevealedParts] = useState<number[]>([])
-  const [imageProgress, setImageProgress] = useState(0)
-  const [audioPlaying, setAudioPlaying] = useState(false)
   const [isWriting, setIsWriting] = useState(false)
-  const [recognizedNumber, setRecognizedNumber] = useState<string>("")
-  const [isRecognizing, setIsRecognizing] = useState(false)
-  const numberCanvasRef = useRef<HTMLCanvasElement>(null)
-  const scribbleInputRef = useRef<HTMLDivElement>(null)
+  const [isDrawing, setIsDrawing] = useState(false)
   const [mnistModel, setMnistModel] = useState<tf.LayersModel | null>(null);
+  const [exercises, setExercises] = useState<any[]>([])
+  const [exercise, setExercise] = useState<any>(null)
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [aiContent, setAiContent] = useState<any>(null)
+  const [selectedWordCount, setSelectedWordCount] = useState<string | null>(null)
+  const [isChangingLength, setIsChangingLength] = useState(false)
+
+  const numberCanvasRef = useRef<HTMLCanvasElement>(null)
+  const whiteboardCanvasRef = useRef<HTMLCanvasElement>(null)
+  const scribbleInputRef = useRef<HTMLDivElement>(null)
 
   // Initialize canvas with proper resolution
   useEffect(() => {
@@ -94,6 +97,35 @@ export default function MathExercises({ onBack, progress, setProgress, lang, set
     
     return () => {
       window.removeEventListener('resize', resizeCanvas)
+    }
+  }, [])
+
+  // Initialize whiteboard canvas
+  useEffect(() => {
+    const canvas = whiteboardCanvasRef.current
+    if (!canvas) return
+
+    const resizeWhiteboard = () => {
+      const rect = canvas.getBoundingClientRect()
+      const dpr = window.devicePixelRatio || 1
+      canvas.width = rect.width * dpr
+      canvas.height = rect.height * dpr
+      
+      const ctx = canvas.getContext("2d")
+      if (ctx) {
+        ctx.scale(dpr, dpr)
+        ctx.strokeStyle = "#000000"
+        ctx.lineWidth = 2
+        ctx.lineCap = "round"
+        ctx.lineJoin = "round"
+      }
+    }
+
+    resizeWhiteboard()
+    window.addEventListener('resize', resizeWhiteboard)
+    
+    return () => {
+      window.removeEventListener('resize', resizeWhiteboard)
     }
   }, [])
 
@@ -153,30 +185,39 @@ export default function MathExercises({ onBack, progress, setProgress, lang, set
     }
   };
 
-  // Handle Apple Scribble input
+  // Handle Apple Scribble input and keyboard typing
   const handleScribbleInput = (e: React.FormEvent<HTMLDivElement>) => {
-    const target = e.currentTarget
-    const text = target.textContent || ""
-    
+    const target = e.currentTarget;
+    let text = target.textContent || "";
+
     // Clear placeholder text if it's still there
     if (text.includes("Écris avec ton crayon...")) {
-      target.textContent = ""
-      return
+      target.textContent = "";
+      return;
     }
-    
-    // Filter to only allow numbers
-    const numbersOnly = text.replace(/[^0-9]/g, "")
-    target.textContent = numbersOnly
-    
-    setUserAnswer(numbersOnly)
-    setRecognizedNumber(numbersOnly)
+
+    // Only allow numbers
+    const numbersOnly = text.replace(/[^0-9]/g, "");
+
+    // Only update if the text actually changed (to avoid cursor jump)
+    if (numbersOnly !== text) {
+      target.textContent = numbersOnly;
+      // Move cursor to the end
+      const range = document.createRange();
+      const sel = window.getSelection();
+      range.selectNodeContents(target);
+      range.collapse(false);
+      sel?.removeAllRanges();
+      sel?.addRange(range);
+    }
+
+    setUserAnswer(numbersOnly);
   }
 
   const clearScribbleInput = () => {
     if (scribbleInputRef.current) {
       scribbleInputRef.current.textContent = ""
       setUserAnswer("")
-      setRecognizedNumber("")
     }
   }
 
@@ -185,11 +226,8 @@ export default function MathExercises({ onBack, progress, setProgress, lang, set
     // Stop any current speech first
     stopSpeech()
     
-    setAudioPlaying(true)
-    
     // Use the new TTS utility for better pronunciation
     speakText(text, lang, { rate: 0.8 }).then(() => {
-      setAudioPlaying(false)
     }).catch(error => {
       console.error('Speech synthesis error:', error)
       // Fallback to basic speech synthesis
@@ -198,11 +236,9 @@ export default function MathExercises({ onBack, progress, setProgress, lang, set
         const langCodes = { fr: "fr-FR", es: "es-ES", en: "en-US" }
         utterance.lang = langCodes[lang as keyof typeof langCodes] || "fr-FR"
         utterance.rate = 0.8
-        utterance.onend = () => setAudioPlaying(false)
-        utterance.onerror = () => setAudioPlaying(false)
+        utterance.onend = () => {}
+        utterance.onerror = () => {}
         speechSynthesis.speak(utterance)
-      } else {
-        setAudioPlaying(false)
       }
     })
   }
@@ -210,13 +246,10 @@ export default function MathExercises({ onBack, progress, setProgress, lang, set
   // Play number with proper pronunciation
   const playNumberAudio = (number: number, lang: string = 'fr') => {
     stopSpeech()
-    setAudioPlaying(true)
     
     speakNumber(number, lang).then(() => {
-      setAudioPlaying(false)
     }).catch(error => {
       console.error('Number speech error:', error)
-      setAudioPlaying(false)
     })
   }
 
@@ -473,6 +506,91 @@ export default function MathExercises({ onBack, progress, setProgress, lang, set
     )
   }
 
+  // Whiteboard drawing functions
+  const startWhiteboardDrawing = (e: React.PointerEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault()
+    setIsDrawing(true)
+    const canvas = whiteboardCanvasRef.current
+    if (!canvas) return
+
+    const rect = canvas.getBoundingClientRect()
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return
+
+    // Get the scale factor between canvas size and display size
+    const scaleX = canvas.width / rect.width
+    const scaleY = canvas.height / rect.height
+
+    let x: number, y: number
+
+    if ('touches' in e) {
+      // Touch event
+      const touch = e.touches[0]
+      x = (touch.clientX - rect.left) * scaleX
+      y = (touch.clientY - rect.top) * scaleY
+    } else {
+      // Pointer event
+      x = (e.clientX - rect.left) * scaleX
+      y = (e.clientY - rect.top) * scaleY
+    }
+
+    // Set up drawing context
+    ctx.strokeStyle = "#000000"
+    ctx.lineWidth = 3
+    ctx.lineCap = "round"
+    ctx.lineJoin = "round"
+
+    ctx.beginPath()
+    ctx.moveTo(x, y)
+  }
+
+  const drawOnWhiteboard = (e: React.PointerEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault()
+    if (!isDrawing) return
+
+    const canvas = whiteboardCanvasRef.current
+    if (!canvas) return
+
+    const rect = canvas.getBoundingClientRect()
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return
+
+    // Get the scale factor between canvas size and display size
+    const scaleX = canvas.width / rect.width
+    const scaleY = canvas.height / rect.height
+
+    let x: number, y: number
+
+    if ('touches' in e) {
+      // Touch event
+      const touch = e.touches[0]
+      x = (touch.clientX - rect.left) * scaleX
+      y = (touch.clientY - rect.top) * scaleY
+    } else {
+      // Pointer event
+      x = (e.clientX - rect.left) * scaleX
+      y = (e.clientY - rect.top) * scaleY
+    }
+
+    ctx.lineTo(x, y)
+    ctx.stroke()
+  }
+
+  const stopWhiteboardDrawing = () => {
+    setIsDrawing(false)
+  }
+
+  const clearWhiteboard = () => {
+    const canvas = whiteboardCanvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return
+    
+    const rect = canvas.getBoundingClientRect()
+    const dpr = window.devicePixelRatio || 1
+    ctx.clearRect(0, 0, rect.width * dpr, rect.height * dpr)
+  }
+
   if (!selectedType) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-green-400 via-blue-500 to-purple-500 p-4">
@@ -721,12 +839,27 @@ export default function MathExercises({ onBack, progress, setProgress, lang, set
                         suppressContentEditableWarning
                         spellCheck={false}
                         className="absolute top-0 left-0 w-full h-full z-10 text-3xl text-center flex items-center justify-center bg-transparent outline-none select-text"
-                        style={{ pointerEvents: isWriting ? 'none' : 'auto' }}
+                        style={{ 
+                          pointerEvents: 'auto',
+                          cursor: 'text'
+                        }}
                         onInput={handleScribbleInput}
+                        onKeyDown={(e) => {
+                          // Allow only numbers and navigation keys
+                          if (!/[\d\b\t\ArrowLeft\ArrowRight\ArrowUp\ArrowDown\Delete]/.test(e.key) && !e.ctrlKey && !e.metaKey) {
+                            e.preventDefault();
+                          }
+                        }}
                         onFocus={e => {
                           if (e.currentTarget.textContent === "") {
                             e.currentTarget.textContent = "";
                           }
+                        }}
+                        onBlur={e => {
+                          // Ensure the content is properly set when focus is lost
+                          const text = e.currentTarget.textContent || "";
+                          const numbersOnly = text.replace(/[^0-9]/g, "");
+                          setUserAnswer(numbersOnly);
                         }}
                         aria-label="Zone de saisie manuscrite ou clavier"
                       >
@@ -770,14 +903,14 @@ export default function MathExercises({ onBack, progress, setProgress, lang, set
 
               <div className="space-y-4">
                 {selectedType !== "writeNumber" && (
-                  <Input
-                    type="number"
-                    value={userAnswer}
-                    onChange={(e) => setUserAnswer(e.target.value)}
-                    placeholder="Ta réponse..."
-                    className="text-2xl p-4 text-center"
-                    disabled={showResult}
-                  />
+                <Input
+                  type="number"
+                  value={userAnswer}
+                  onChange={(e) => setUserAnswer(e.target.value)}
+                  placeholder="Ta réponse..."
+                  className="text-2xl p-4 text-center"
+                  disabled={showResult}
+                />
                 )}
 
                 {selectedType === "subtraction" && (
@@ -840,6 +973,41 @@ export default function MathExercises({ onBack, progress, setProgress, lang, set
           </Card>
 
           {renderMultiplicationImage()}
+
+          {/* Whiteboard Section - Large, simple writing space like writing correction */}
+          <div className="bg-gray-50 p-6 rounded-lg mt-8">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-medium text-gray-700">Dessine tes calculs ici avec ton stylet</h3>
+              <Button
+                onClick={clearWhiteboard}
+                size="sm"
+                className="bg-gray-500 hover:bg-gray-600 text-white"
+              >
+                Effacer
+              </Button>
+            </div>
+            <canvas
+              ref={whiteboardCanvasRef}
+              width={800}
+              height={600}
+              className="w-full border-2 border-dashed border-gray-300 rounded cursor-crosshair touch-none bg-white mb-4"
+              onPointerDown={startWhiteboardDrawing}
+              onPointerMove={drawOnWhiteboard}
+              onPointerUp={stopWhiteboardDrawing}
+              onPointerLeave={stopWhiteboardDrawing}
+              onTouchStart={startWhiteboardDrawing}
+              onTouchMove={drawOnWhiteboard}
+              onTouchEnd={stopWhiteboardDrawing}
+              style={{ 
+                touchAction: "none",
+                WebkitUserSelect: "none",
+                userSelect: "none"
+              }}
+            />
+          </div>
+
+          <div className="space-y-4">
+          </div>
         </div>
       </div>
     </div>

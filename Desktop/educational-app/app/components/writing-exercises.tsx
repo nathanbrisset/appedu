@@ -3,7 +3,7 @@
 import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeft, PenTool, Check, Star, Save, RotateCcw, Sparkles, BookOpen } from "lucide-react"
+import { ArrowLeft, PenTool, Check, Star, Save, RotateCcw, Sparkles, BookOpen, Book } from "lucide-react"
 import { Textarea } from "@/components/ui/textarea"
 
 interface WritingExercisesProps {
@@ -58,6 +58,34 @@ const translations = {
     notQuite: 'Pas tout à fait...',
     correctAnswer: 'La bonne réponse était :',
     progress: 'Mes Progrès en Écriture',
+    wordCountOptions: 'Choisis la longueur du texte',
+    under100: 'Moins de 100 mots',
+    under100Desc: 'Textes courts et simples',
+    oneHundredToTwoHundred: '100 - 200 mots',
+    oneHundredToTwoHundredDesc: 'Textes de longueur moyenne',
+    overTwoHundred: 'Plus de 200 mots',
+    overTwoHundredDesc: 'Textes longs et détaillés',
+    writeYourStory: 'Écris ton histoire',
+    writeHere: 'Écris ici...',
+    showTips: 'Voir les conseils',
+    hideTips: 'Masquer les conseils',
+    wordCount: 'Nombre de mots',
+    evaluateWriting: 'Évaluer mon écriture',
+    results: 'Résultats',
+    excellentWork: 'Excellent travail !',
+    goodWork: 'Bon travail !',
+    keepPracticing: 'Continue à t\'entraîner !',
+    tryAgain: 'Réessayer',
+    nextPrompt: 'Prochain exercice',
+    prompt: 'Exercice',
+    simplePrompts: 'Exercices simples',
+    basicVocabulary: 'Vocabulaire de base',
+    creativePrompts: 'Exercices créatifs',
+    richVocabulary: 'Vocabulaire riche',
+    mediumStories: 'Histoires moyennes',
+    complexPrompts: 'Exercices complexes',
+    advancedVocabulary: 'Vocabulaire avancé',
+    longStories: 'Histoires longues',
   },
   es: {
     writing: 'Escritura',
@@ -102,6 +130,34 @@ const translations = {
     notQuite: 'No del todo...',
     correctAnswer: 'La respuesta correcta era:',
     progress: 'Mi Progreso en Escritura',
+    wordCountOptions: 'Elige la longitud del texto',
+    under100: 'Menos de 100 palabras',
+    under100Desc: 'Textos cortos y simples',
+    oneHundredToTwoHundred: '100 - 200 palabras',
+    oneHundredToTwoHundredDesc: 'Textos de longitud media',
+    overTwoHundred: 'Más de 200 palabras',
+    overTwoHundredDesc: 'Textos largos y detallados',
+    writeYourStory: 'Escribe tu historia',
+    writeHere: 'Escribe aquí...',
+    showTips: 'Ver consejos',
+    hideTips: 'Ocultar consejos',
+    wordCount: 'Número de palabras',
+    evaluateWriting: 'Evaluar mi escritura',
+    results: 'Resultados',
+    excellentWork: '¡Excelente trabajo!',
+    goodWork: '¡Buen trabajo!',
+    keepPracticing: '¡Sigue practicando!',
+    tryAgain: 'Intentar de nuevo',
+    nextPrompt: 'Siguiente ejercicio',
+    prompt: 'Ejercicio',
+    simplePrompts: 'Ejercicios simples',
+    basicVocabulary: 'Vocabulario básico',
+    creativePrompts: 'Ejercicios creativos',
+    richVocabulary: 'Vocabulario rico',
+    mediumStories: 'Historias medianas',
+    complexPrompts: 'Ejercicios complejos',
+    advancedVocabulary: 'Vocabulario avanzado',
+    longStories: 'Historias largas',
   },
   en: {
     writing: 'Writing',
@@ -146,6 +202,34 @@ const translations = {
     notQuite: 'Not quite...',
     correctAnswer: 'The correct answer was:',
     progress: 'My Writing Progress',
+    wordCountOptions: 'Choose text length',
+    under100: 'Under 100 words',
+    under100Desc: 'Short and simple texts',
+    oneHundredToTwoHundred: '100 - 200 words',
+    oneHundredToTwoHundredDesc: 'Medium length texts',
+    overTwoHundred: 'Over 200 words',
+    overTwoHundredDesc: 'Long and detailed texts',
+    writeYourStory: 'Write your story',
+    writeHere: 'Write here...',
+    showTips: 'Show tips',
+    hideTips: 'Hide tips',
+    wordCount: 'Word count',
+    evaluateWriting: 'Evaluate my writing',
+    results: 'Results',
+    excellentWork: 'Excellent work!',
+    goodWork: 'Good work!',
+    keepPracticing: 'Keep practicing!',
+    tryAgain: 'Try again',
+    nextPrompt: 'Next exercise',
+    prompt: 'Exercise',
+    simplePrompts: 'Simple exercises',
+    basicVocabulary: 'Basic vocabulary',
+    creativePrompts: 'Creative exercises',
+    richVocabulary: 'Rich vocabulary',
+    mediumStories: 'Medium stories',
+    complexPrompts: 'Complex exercises',
+    advancedVocabulary: 'Advanced vocabulary',
+    longStories: 'Long stories',
   },
 }
 
@@ -491,63 +575,45 @@ const writingTips: WritingTipsByLang = {
 export default function WritingExercises({ onBack, progress, setProgress, lang, setLang }: WritingExercisesProps) {
   const [currentLevel, setCurrentLevel] = useState<string | null>(null)
   const [currentPrompt, setCurrentPrompt] = useState(0)
-  const [userText, setUserText] = useState("")
+  const [userAnswer, setUserAnswer] = useState("")
+  const [showResult, setShowResult] = useState(false)
+  const [score, setScore] = useState(0)
   const [showTips, setShowTips] = useState(false)
-  const [showEvaluation, setShowEvaluation] = useState(false)
-  const [evaluation, setEvaluation] = useState({ score: 0, feedback: "" })
+  const [selectedWordCount, setSelectedWordCount] = useState<string | null>(null)
   const t = translations[lang];
 
   const startWriting = (level: string) => {
     setCurrentLevel(level)
     setCurrentPrompt(0)
-    setUserText("")
+    setUserAnswer("")
+    setShowResult(false)
+    setScore(0)
     setShowTips(false)
-    setShowEvaluation(false)
+    setSelectedWordCount(null)
   }
 
   const evaluateWriting = () => {
     const currentPromptData = writingPrompts[lang][currentLevel as keyof WritingPromptsByLevel][currentPrompt]
-    const wordCount = userText.split(/\s+/).filter(word => word.length > 0).length
-    const targetWords = currentPromptData.wordCount
     
-    let score = 0
-    let feedback = ""
-
-    // Word count evaluation
-    if (wordCount >= targetWords * 0.8) {
-      score += 30
-      feedback += "✅ " + t.goodWordCount + " "
-    } else {
-      feedback += "⚠️ " + t.tryMore + " "
-    }
-
-    // Content evaluation (basic)
-    if (userText.length > 50) {
-      score += 40
-      feedback += "✅ " + t.goodContent + " "
-    } else {
-      feedback += "⚠️ " + t.moreIdeas + " "
-    }
-
-    // Creativity bonus
-    if (userText.includes("parce que") || userText.includes("mais") || userText.includes("et")) {
-      score += 20
-      feedback += "✅ " + t.connectors + " "
-    }
-
-    // Completion bonus
-    if (userText.trim().length > 0) {
-      score += 10
-      feedback += "✅ " + t.completed + " "
-    }
-
-    setEvaluation({ score: Math.min(score, 100), feedback })
-    setShowEvaluation(true)
+    // Simple evaluation based on word count and content
+    const wordCount = userAnswer.split(/\s+/).filter(word => word.length > 0).length
+    const hasKeywords = currentPromptData.hints.some(hint => 
+      userAnswer.toLowerCase().includes(hint.toLowerCase())
+    )
+    
+    let newScore = 0
+    if (wordCount >= 10) newScore += 30
+    if (wordCount >= 20) newScore += 20
+    if (hasKeywords) newScore += 30
+    if (userAnswer.length > 50) newScore += 20
+    
+    setScore(newScore)
+    setShowResult(true)
 
     // Update progress
     const newProgress = { ...progress }
     if (!newProgress.writing) newProgress.writing = { beginner: 0, intermediate: 0, advanced: 0 }
-    newProgress.writing[currentLevel as keyof typeof newProgress.writing] += score
+    newProgress.writing[currentLevel as keyof typeof newProgress.writing] += newScore
     setProgress(newProgress)
   }
 
@@ -555,22 +621,20 @@ export default function WritingExercises({ onBack, progress, setProgress, lang, 
     const prompts = writingPrompts[lang][currentLevel as keyof WritingPromptsByLevel]
     if (currentPrompt < prompts.length - 1) {
       setCurrentPrompt(currentPrompt + 1)
-      setUserText("")
+      setUserAnswer("")
+      setShowResult(false)
       setShowTips(false)
-      setShowEvaluation(false)
     } else {
       setCurrentLevel(null)
     }
   }
-
-  const wordCount = userText.split(/\s+/).filter(word => word.length > 0).length
 
   if (currentLevel && writingPrompts[lang][currentLevel as keyof WritingPromptsByLevel]) {
     const prompts = writingPrompts[lang][currentLevel as keyof WritingPromptsByLevel]
     const currentPromptData = prompts[currentPrompt]
 
     return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-400 via-red-500 to-pink-600 p-4">
+      <div className="min-h-screen bg-gradient-to-br from-green-400 via-blue-500 to-purple-600 p-4">
         <div className="max-w-4xl mx-auto">
           {/* Language Selector */}
           <div className="flex justify-end gap-2 mb-2">
@@ -606,35 +670,84 @@ export default function WritingExercises({ onBack, progress, setProgress, lang, 
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <div className="text-lg leading-relaxed text-gray-800">
-                  <strong>{t.instruction}:</strong> {currentPromptData.prompt}
-                </div>
-                
-                <div className="bg-blue-50 p-4 rounded-lg">
-                  <div className="font-medium text-blue-800 mb-2">{t.hints}:</div>
-                  <ul className="list-disc list-inside text-blue-700 space-y-1">
-                    {currentPromptData.hints.map((hint, index) => (
-                      <li key={index}>{hint}</li>
-                    ))}
-                  </ul>
-                </div>
+              <div className="text-lg leading-relaxed mb-6 text-gray-800">
+                {currentPromptData.prompt}
+              </div>
+              
+              <div className="bg-blue-100 p-4 rounded-lg mb-4">
+                <h4 className="font-semibold text-gray-800 mb-2">{t.hints}:</h4>
+                <ul className="list-disc list-inside space-y-1 text-gray-700">
+                  {currentPromptData.hints.map((hint, index) => (
+                    <li key={index}>{hint}</li>
+                  ))}
+                </ul>
+              </div>
+            </CardContent>
+          </Card>
 
-                <div className="flex gap-4">
-                  <Button 
-                    onClick={() => setShowTips(!showTips)}
-                    variant="outline"
-                    className="border-blue-300 text-blue-700"
-                  >
-                    <Sparkles className="h-4 w-4 mr-2" />
-                    {t.writingTips}
-                  </Button>
-                  
-                  <div className="text-sm text-gray-600 flex items-center">
-                    {t.objective}: {currentPromptData.wordCount} {t.wordGoal} (actuel: {wordCount})
+          {/* Writing Area */}
+          <Card className="mb-6 bg-white/95 backdrop-blur-sm shadow-xl">
+            <CardHeader>
+              <CardTitle className="text-xl">{t.writeYourStory}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {/* Word Count Selection */}
+              {!selectedWordCount && (
+                <div className="mb-6">
+                  <h4 className="text-lg font-semibold text-gray-800 mb-4">{t.wordCountOptions}</h4>
+                  <div className="grid md:grid-cols-3 gap-4">
+                    <button
+                      onClick={() => setSelectedWordCount('under100')}
+                      className="p-4 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all text-left"
+                    >
+                      <div className="text-2xl mb-2">📝</div>
+                      <div className="font-semibold text-gray-800">{t.under100}</div>
+                      <div className="text-sm text-gray-600">{t.under100Desc}</div>
+                    </button>
+                    <button
+                      onClick={() => setSelectedWordCount('100-200')}
+                      className="p-4 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all text-left"
+                    >
+                      <div className="text-2xl mb-2">📖</div>
+                      <div className="font-semibold text-gray-800">{t.oneHundredToTwoHundred}</div>
+                      <div className="text-sm text-gray-600">{t.oneHundredToTwoHundredDesc}</div>
+                    </button>
+                    <button
+                      onClick={() => setSelectedWordCount('200plus')}
+                      className="p-4 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all text-left"
+                    >
+                      <div className="text-2xl mb-2">📚</div>
+                      <div className="font-semibold text-gray-800">{t.overTwoHundred}</div>
+                      <div className="text-sm text-gray-600">{t.overTwoHundredDesc}</div>
+                    </button>
                   </div>
                 </div>
-              </div>
+              )}
+
+              {selectedWordCount && (
+                <>
+                  <textarea
+                    value={userAnswer}
+                    onChange={(e) => setUserAnswer(e.target.value)}
+                    className="w-full h-64 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                    placeholder={t.writeHere}
+                  />
+                  
+                  <div className="flex justify-between items-center mt-4">
+                    <Button 
+                      onClick={() => setShowTips(!showTips)}
+                      variant="outline"
+                      className="text-sm"
+                    >
+                      {showTips ? t.hideTips : t.showTips}
+                    </Button>
+                    
+                    <div className="text-sm text-gray-600">
+                      {t.wordCount}: {userAnswer.split(/\s+/).filter(word => word.length > 0).length}
+                    </div>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
 
@@ -642,84 +755,70 @@ export default function WritingExercises({ onBack, progress, setProgress, lang, 
           {showTips && (
             <Card className="mb-6 bg-yellow-50 border-yellow-200">
               <CardHeader>
-                <CardTitle className="text-xl text-yellow-800">{t.writingTipsTitle}</CardTitle>
+                <CardTitle className="text-lg text-yellow-800">{t.writingTips}</CardTitle>
               </CardHeader>
               <CardContent>
-                <ul className="list-disc list-inside text-yellow-700 space-y-2">
+                <ul className="space-y-2 text-yellow-700">
                   {writingTips[lang][currentLevel as keyof WritingTipsByLevel].map((tip, index) => (
-                    <li key={index}>{tip}</li>
+                    <li key={index} className="flex items-start gap-2">
+                      <span className="text-yellow-600 mt-1">•</span>
+                      <span>{tip}</span>
+                    </li>
                   ))}
                 </ul>
               </CardContent>
             </Card>
           )}
 
-          {/* Writing Area */}
-          <Card className="mb-6 bg-white/95 backdrop-blur-sm shadow-xl">
-            <CardHeader>
-              <CardTitle className="text-xl">{t.yourText}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Textarea
-                value={userText}
-                onChange={(e) => setUserText(e.target.value)}
-                placeholder={t.startWriting}
-                className="min-h-[300px] text-lg leading-relaxed resize-none"
-              />
-              
-              <div className="flex justify-between items-center mt-4">
-                <div className="text-sm text-gray-600">
-                  {wordCount} {t.wordsWritten}
-                </div>
-                
-                <Button 
-                  onClick={evaluateWriting}
-                  disabled={userText.trim().length === 0}
-                  className="bg-green-500 hover:bg-green-600"
-                >
-                  <Check className="h-4 w-4 mr-2" />
-                  {t.evaluate}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Submit Button */}
+          {!showResult && selectedWordCount && (
+            <Button 
+              onClick={evaluateWriting}
+              className="w-full bg-green-500 hover:bg-green-600 text-white text-lg py-3"
+              disabled={userAnswer.trim().length === 0}
+            >
+              <Check className="h-4 w-4 mr-2" />
+              {t.evaluateWriting}
+            </Button>
+          )}
 
-          {/* Evaluation Results */}
-          {showEvaluation && (
+          {/* Results */}
+          {showResult && (
             <Card className="mb-6 bg-white/95 backdrop-blur-sm shadow-xl">
               <CardHeader>
-                <CardTitle className="text-xl">{t.evaluation}</CardTitle>
+                <CardTitle className="text-xl">{t.results}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-center">
                   <div className="text-4xl mb-4">
-                    {evaluation.score >= 80 ? '🎉' : evaluation.score >= 60 ? '👍' : '💪'}
+                    {score >= 80 ? '🎉' : score >= 60 ? '👍' : '💪'}
                   </div>
                   <div className="text-2xl font-bold mb-2">
-                    {t.score}: {evaluation.score}/100
+                    {t.score}: {score}%
                   </div>
-                  <div className="text-gray-700 mb-4 text-left">
-                    {evaluation.feedback}
+                  <div className="text-gray-600 mb-4">
+                    {score >= 80 ? t.excellentWork : score >= 60 ? t.goodWork : t.keepPracticing}
                   </div>
                   
                   <div className="flex gap-4 justify-center">
                     <Button 
                       onClick={() => {
-                        setUserText("")
-                        setShowEvaluation(false)
+                        setUserAnswer("")
+                        setShowResult(false)
+                        setShowTips(false)
                       }}
                       variant="outline"
                     >
                       <RotateCcw className="h-4 w-4 mr-2" />
-                      {t.restart}
+                      {t.tryAgain}
                     </Button>
                     
                     <Button 
                       onClick={nextPrompt}
-                      className="bg-blue-500 hover:bg-blue-600"
+                      className="bg-green-500 hover:bg-green-600"
                     >
-                      <BookOpen className="h-4 w-4 mr-2" />
-                      {t.nextExercise}
+                      <Book className="h-4 w-4 mr-2" />
+                      {t.nextPrompt}
                     </Button>
                   </div>
                 </div>
@@ -730,7 +829,7 @@ export default function WritingExercises({ onBack, progress, setProgress, lang, 
           {/* Progress */}
           <div className="text-center text-white">
             <div className="text-lg">
-              {t.exercise} {currentPrompt + 1} {t.of} {prompts.length}
+              {t.prompt} {currentPrompt + 1} {t.of} {prompts.length}
             </div>
           </div>
         </div>
@@ -739,7 +838,7 @@ export default function WritingExercises({ onBack, progress, setProgress, lang, 
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-400 via-red-500 to-pink-600 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-green-400 via-blue-500 to-purple-600 p-4">
       <div className="max-w-4xl mx-auto">
         {/* Language Selector */}
         <div className="flex justify-end gap-2 mb-2">
@@ -771,16 +870,16 @@ export default function WritingExercises({ onBack, progress, setProgress, lang, 
             onClick={() => startWriting('beginner')}
           >
             <CardHeader className="text-center">
-              <div className="mx-auto w-16 h-16 bg-gradient-to-br from-orange-500 to-red-500 rounded-full flex items-center justify-center mb-4">
-                <PenTool className="h-8 w-8 text-white" />
+              <div className="mx-auto w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-500 rounded-full flex items-center justify-center mb-4">
+                <span className="text-2xl">✏️</span>
               </div>
               <CardTitle className="text-2xl text-gray-800">{t.beginner}</CardTitle>
             </CardHeader>
             <CardContent className="text-center">
               <div className="space-y-2 text-gray-600">
-                <div>{t.simpleDescriptions}</div>
-                <div>{t.shortSentences}</div>
-                <div>30-40 {t.wordGoal}</div>
+                <div>{t.simplePrompts}</div>
+                <div>{t.basicVocabulary}</div>
+                <div>{t.shortStories}</div>
               </div>
             </CardContent>
           </Card>
@@ -790,16 +889,16 @@ export default function WritingExercises({ onBack, progress, setProgress, lang, 
             onClick={() => startWriting('intermediate')}
           >
             <CardHeader className="text-center">
-              <div className="mx-auto w-16 h-16 bg-gradient-to-br from-red-500 to-pink-500 rounded-full flex items-center justify-center mb-4">
-                <PenTool className="h-8 w-8 text-white" />
+              <div className="mx-auto w-16 h-16 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-full flex items-center justify-center mb-4">
+                <span className="text-2xl">✏️</span>
               </div>
               <CardTitle className="text-2xl text-gray-800">{t.intermediate}</CardTitle>
             </CardHeader>
             <CardContent className="text-center">
               <div className="space-y-2 text-gray-600">
-                <div>{t.shortStories}</div>
-                <div>{t.logicalConnectors}</div>
-                <div>70-80 {t.wordGoal}</div>
+                <div>{t.creativePrompts}</div>
+                <div>{t.richVocabulary}</div>
+                <div>{t.mediumStories}</div>
               </div>
             </CardContent>
           </Card>
@@ -809,16 +908,16 @@ export default function WritingExercises({ onBack, progress, setProgress, lang, 
             onClick={() => startWriting('advanced')}
           >
             <CardHeader className="text-center">
-              <div className="mx-auto w-16 h-16 bg-gradient-to-br from-pink-500 to-purple-500 rounded-full flex items-center justify-center mb-4">
-                <PenTool className="h-8 w-8 text-white" />
+              <div className="mx-auto w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center mb-4">
+                <span className="text-2xl">✏️</span>
               </div>
               <CardTitle className="text-2xl text-gray-800">{t.advanced}</CardTitle>
             </CardHeader>
             <CardContent className="text-center">
               <div className="space-y-2 text-gray-600">
-                <div>• {t.creativeStories}</div>
-                <div>• Vocabulaire riche</div>
-                <div>• 100-120 {t.wordGoal}</div>
+                <div>{t.complexPrompts}</div>
+                <div>{t.advancedVocabulary}</div>
+                <div>{t.longStories}</div>
               </div>
             </CardContent>
           </Card>
@@ -835,19 +934,19 @@ export default function WritingExercises({ onBack, progress, setProgress, lang, 
           <CardContent>
             <div className="grid grid-cols-3 gap-4">
               <div className="text-center">
-                <div className="text-2xl font-bold text-orange-600">
+                <div className="text-2xl font-bold text-green-600">
                   {progress?.writing?.beginner || 0}
                 </div>
                 <div className="text-sm text-gray-600">{t.beginner}</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-red-600">
+                <div className="text-2xl font-bold text-blue-600">
                   {progress?.writing?.intermediate || 0}
                 </div>
                 <div className="text-sm text-gray-600">{t.intermediate}</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-pink-600">
+                <div className="text-2xl font-bold text-purple-600">
                   {progress?.writing?.advanced || 0}
                 </div>
                 <div className="text-sm text-gray-600">{t.advanced}</div>

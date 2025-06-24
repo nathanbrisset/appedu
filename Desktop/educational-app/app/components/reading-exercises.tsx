@@ -328,6 +328,11 @@ export default function ReadingExercises({ onBack, progress, setProgress, lang, 
   const [userAnswers, setUserAnswers] = useState<string[]>([])
   const [score, setScore] = useState(0)
   const [showResults, setShowResults] = useState(false)
+  // Word count selection states
+  const [selectedWordCount, setSelectedWordCount] = useState<string | null>(null)
+  const [isChangingLength, setIsChangingLength] = useState(false)
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [aiContent, setAiContent] = useState<any>(null)
   const t = translations[lang];
 
   const speakText = (text: string) => {
@@ -339,6 +344,45 @@ export default function ReadingExercises({ onBack, progress, setProgress, lang, 
     }
   }
 
+  const generateNewStory = async () => {
+    if (!selectedWordCount) return;
+    
+    setIsGenerating(true);
+    try {
+      const response = await fetch('/api/generate-story', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          language: lang === 'fr' ? 'french' : lang === 'es' ? 'spanish' : 'english',
+          theme: 'general',
+          exerciseType: 'reading',
+          difficulty: currentLevel,
+          wordCount: selectedWordCount
+        }),
+      });
+
+      if (response.ok) {
+        const aiStory = await response.json();
+        setAiContent(aiStory);
+        setShowQuestions(false);
+        setUserAnswers([]);
+        setShowResults(false);
+      }
+    } catch (error) {
+      console.error('Error generating story:', error);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleSelectWordCount = async (wordCount: string) => {
+    setSelectedWordCount(wordCount);
+    setIsChangingLength(false);
+    await generateNewStory();
+  };
+
   const startReading = (level: string) => {
     setCurrentLevel(level)
     setCurrentStory(0)
@@ -346,10 +390,12 @@ export default function ReadingExercises({ onBack, progress, setProgress, lang, 
     setUserAnswers([])
     setScore(0)
     setShowResults(false)
+    setSelectedWordCount(null)
+    setAiContent(null)
   }
 
   const checkAnswers = () => {
-    const currentStoryData = readingStories[lang][currentLevel as keyof ReadingStoriesByLevel][currentStory]
+    const currentStoryData = aiContent || readingStories[lang][currentLevel as keyof ReadingStoriesByLevel][currentStory]
     let correctAnswers = 0
     
     userAnswers.forEach((answer, index) => {
@@ -370,6 +416,12 @@ export default function ReadingExercises({ onBack, progress, setProgress, lang, 
   }
 
   const nextStory = () => {
+    if (aiContent) {
+      // For AI-generated content, generate a new story
+      generateNewStory();
+      return;
+    }
+    
     const stories = readingStories[lang][currentLevel as keyof ReadingStoriesByLevel]
     if (currentStory < stories.length - 1) {
       setCurrentStory(currentStory + 1)
@@ -381,10 +433,72 @@ export default function ReadingExercises({ onBack, progress, setProgress, lang, 
     }
   }
 
-  if (currentLevel && readingStories[lang][currentLevel as keyof ReadingStoriesByLevel]) {
-    const stories = readingStories[lang][currentLevel as keyof ReadingStoriesByLevel]
-    const currentStoryData = stories[currentStory]
+  if (currentLevel) {
+    // Always show length selector if no AI story or changing length
+    if (!selectedWordCount || isChangingLength || !aiContent) {
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-green-400 via-blue-500 to-purple-600 p-4">
+          <div className="max-w-4xl mx-auto">
+            {/* Language Selector */}
+            <div className="flex justify-end gap-2 mb-2">
+              <button onClick={() => setLang('fr')} aria-label="Français" className={lang==='fr'?"opacity-100 scale-110":"opacity-60 hover:opacity-100"} style={{fontSize:'2rem',transition:'all 0.2s'}}>
+                🇫🇷
+              </button>
+              <button onClick={() => setLang('es')} aria-label="Español" className={lang==='es'?"opacity-100 scale-110":"opacity-60 hover:opacity-100"} style={{fontSize:'2rem',transition:'all 0.2s'}}>
+                🇪🇸
+              </button>
+              <button onClick={() => setLang('en')} aria-label="English" className={lang==='en'?"opacity-100 scale-110":"opacity-60 hover:opacity-100"} style={{fontSize:'2rem',transition:'all 0.2s'}}>
+                🇬🇧
+              </button>
+            </div>
 
+            {/* Header */}
+            <div className="flex items-center justify-between mb-6">
+              <Button onClick={() => setCurrentLevel(null)} variant="outline" className="bg-white/20 text-white border-white/30">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                {t.back}
+              </Button>
+              <h1 className="text-3xl font-bold text-white drop-shadow-lg">{t.reading}</h1>
+              <div className="text-white font-semibold">
+                {t.level}: {currentLevel === 'beginner' ? t.beginner : currentLevel === 'intermediate' ? t.intermediate : t.advanced}
+              </div>
+            </div>
+
+            {/* Word count selection UI */}
+            <Card className="mb-6 bg-white/95 backdrop-blur-sm shadow-xl">
+              <CardHeader>
+                <CardTitle className="text-xl text-center">Choisis la longueur de l'histoire :</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex gap-3 justify-center">
+                  <Button
+                    onClick={() => handleSelectWordCount('under100')}
+                    className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2"
+                  >
+                    Court (&lt; 100 mots)
+                  </Button>
+                  <Button
+                    onClick={() => handleSelectWordCount('100-200')}
+                    className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2"
+                  >
+                    Moyen (100-200 mots)
+                  </Button>
+                  <Button
+                    onClick={() => handleSelectWordCount('over200')}
+                    className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2"
+                  >
+                    Long (&gt; 200 mots)
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      )
+    }
+
+    // If AI content is present, show the story and allow changing length
+    const currentStoryData = aiContent
     return (
       <div className="min-h-screen bg-gradient-to-br from-green-400 via-blue-500 to-purple-600 p-4">
         <div className="max-w-4xl mx-auto">
@@ -413,19 +527,31 @@ export default function ReadingExercises({ onBack, progress, setProgress, lang, 
             </div>
           </div>
 
+          {/* Word count display and changer */}
+          <div className="flex items-center justify-center gap-2 mb-4">
+            <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full font-semibold">
+              {selectedWordCount === 'under100' && 'Court (< 100 mots)'}
+              {selectedWordCount === '100-200' && 'Moyen (100-200 mots)'}
+              {selectedWordCount === 'over200' && 'Long (> 200 mots)'}
+            </span>
+            <Button size="sm" variant="outline" onClick={() => setIsChangingLength(true)}>
+              Changer
+            </Button>
+          </div>
+
           {/* Story Card */}
           <Card className="mb-6 bg-white/95 backdrop-blur-sm shadow-xl">
             <CardHeader>
               <CardTitle className="flex items-center gap-3 text-2xl">
-                <span className="text-4xl">{currentStoryData.emoji}</span>
+                <span className="text-4xl">{currentStoryData.emoji || '📖'}</span>
                 {currentStoryData.title}
+                <span className="text-purple-500">✨</span>
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-lg leading-relaxed mb-6 text-gray-800">
                 {currentStoryData.text}
               </div>
-              
               <div className="flex gap-4">
                 <Button 
                   onClick={() => speakText(currentStoryData.text)}
@@ -434,7 +560,6 @@ export default function ReadingExercises({ onBack, progress, setProgress, lang, 
                   <Volume2 className="h-4 w-4 mr-2" />
                   {t.listenStory}
                 </Button>
-                
                 {!showQuestions && (
                   <Button 
                     onClick={() => setShowQuestions(true)}
@@ -444,6 +569,13 @@ export default function ReadingExercises({ onBack, progress, setProgress, lang, 
                     {t.seeQuestions}
                   </Button>
                 )}
+                <Button
+                  onClick={generateNewStory}
+                  disabled={isGenerating}
+                  className="bg-purple-500 hover:bg-purple-600"
+                >
+                  {isGenerating ? "Génération..." : "Nouvelle histoire"}
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -456,7 +588,7 @@ export default function ReadingExercises({ onBack, progress, setProgress, lang, 
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {currentStoryData.questions.map((q, index) => (
+                  {currentStoryData.questions.map((q: any, index: number) => (
                     <div key={index} className="space-y-2">
                       <label className="text-lg font-medium text-gray-800">
                         {index + 1}. {q.question}
@@ -475,7 +607,6 @@ export default function ReadingExercises({ onBack, progress, setProgress, lang, 
                     </div>
                   ))}
                 </div>
-                
                 <Button 
                   onClick={checkAnswers}
                   className="mt-6 bg-purple-500 hover:bg-purple-600 w-full"
@@ -504,7 +635,6 @@ export default function ReadingExercises({ onBack, progress, setProgress, lang, 
                   <div className="text-gray-600 mb-4">
                     {score >= 80 ? t.correctAnswers : score >= 60 ? 'Bon travail !' : 'Continue à t\'entraîner !'}
                   </div>
-                  
                   <div className="flex gap-4 justify-center">
                     <Button 
                       onClick={() => {
@@ -517,9 +647,8 @@ export default function ReadingExercises({ onBack, progress, setProgress, lang, 
                       <RotateCcw className="h-4 w-4 mr-2" />
                       {t.restart}
                     </Button>
-                    
                     <Button 
-                      onClick={nextStory}
+                      onClick={generateNewStory}
                       className="bg-green-500 hover:bg-green-600"
                     >
                       <Book className="h-4 w-4 mr-2" />
@@ -534,7 +663,7 @@ export default function ReadingExercises({ onBack, progress, setProgress, lang, 
           {/* Progress */}
           <div className="text-center text-white">
             <div className="text-lg">
-              {t.story} {currentStory + 1} {t.of} {stories.length}
+              {t.story} 1 {t.of} 1
             </div>
           </div>
         </div>
